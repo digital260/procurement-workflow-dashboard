@@ -1,8 +1,8 @@
 /**
- * PROCUREMENT WORKFLOW DASHBOARD
+ * PROCUREMENT WORKFLOW DASHBOARD - WITH MANAGER APPROVAL
  * Complete implementation for Google Sheets
  * Author: Procurement Team
- * Version: 1.0
+ * Version: 2.0
  */
 
 // ============================================================================
@@ -13,6 +13,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📊 Procurement Workflow')
     .addItem('📋 Start New Procurement', 'openProcurementForm')
+    .addItem('👤 Manager Approval', 'openApprovalForm')
     .addItem('📦 Track Material', 'openTrackingForm')
     .addItem('✅ Quality Check', 'openQualityForm')
     .addItem('💳 Process Payment', 'openPaymentForm')
@@ -20,6 +21,274 @@ function onOpen() {
     .addSeparator()
     .addItem('🔧 Setup Sheets', 'initializeSheets')
     .addToUi();
+}
+
+// ============================================================================
+// MANAGER APPROVAL SECTION
+// ============================================================================
+
+function openApprovalForm() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Requests');
+  const data = sheet.getDataRange().getValues();
+  
+  // Get pending requests
+  const pendingRequests = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][3] === 'Pending') {
+      pendingRequests.push({
+        requestId: data[i][0],
+        date: data[i][1],
+        requestor: data[i][2],
+        amount: data[i][4],
+        description: data[i][5],
+        rowIndex: i + 1
+      });
+    }
+  }
+  
+  let optionsHtml = '<option value="">Select a Request to Approve</option>';
+  pendingRequests.forEach(req => {
+    optionsHtml += `<option value="${req.rowIndex}|${req.requestId}|${req.requestor}|${req.amount}">
+      ${req.requestId} - ${req.requestor} - ₹${req.amount}
+    </option>`;
+  });
+  
+  const html = HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #1565c0; margin-bottom: 10px; font-size: 26px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; }
+        input[type="text"], select, textarea {
+          width: 100%;
+          padding: 12px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        textarea { resize: vertical; min-height: 80px; }
+        .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        button { 
+          flex: 1;
+          padding: 12px; 
+          color: white; 
+          border: none; 
+          border-radius: 4px; 
+          font-size: 16px; 
+          font-weight: bold;
+          cursor: pointer;
+        }
+        .approve { background: #4CAF50; }
+        .approve:hover { background: #45a049; }
+        .reject { background: #f44336; }
+        .reject:hover { background: #da190b; }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; color: #1565c0; font-size: 13px; border-left: 4px solid #1565c0; }
+        .details { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #ddd; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .detail-label { font-weight: 600; color: #333; }
+        .detail-value { color: #666; }
+        .success { color: #4CAF50; display: none; margin-top: 10px; text-align: center; }
+        .error { color: #f44336; display: none; margin-top: 10px; }
+        .warning { background: #fff3cd; padding: 12px; border-radius: 4px; color: #856404; margin-bottom: 20px; border: 1px solid #ffc107; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>👤 Manager Approval Portal</h1>
+        <p class="subtitle">Review and approve/reject procurement requests</p>
+        
+        <div class="info">
+          <strong>ℹ️ Instructions:</strong> Select a pending request below and either approve it to proceed to PO creation or reject it with comments.
+        </div>
+        
+        ${pendingRequests.length === 0 ? 
+          `<div class="warning">✓ No pending requests to approve!</div>` 
+          : ''}
+        
+        <form id="approvalForm">
+          <div class="form-group">
+            <label for="request">Pending Requests *</label>
+            <select id="request" required onchange="loadRequestDetails()">
+              ${optionsHtml}
+            </select>
+          </div>
+          
+          <div id="detailsSection" style="display: none;">
+            <div class="details" id="requestDetails"></div>
+            
+            <div class="form-group">
+              <label for="approverName">Approver Name *</label>
+              <input type="text" id="approverName" placeholder="Your name" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="comments">Comments/Notes</label>
+              <textarea id="comments" placeholder="Add any comments or feedback..."></textarea>
+            </div>
+            
+            <div class="button-group">
+              <button type="button" class="approve" onclick="submitApproval('APPROVED')">✅ Approve Request</button>
+              <button type="button" class="reject" onclick="submitApproval('REJECTED')">❌ Reject Request</button>
+            </div>
+            
+            <div class="success" id="successMsg">✅ Request processed successfully!</div>
+            <div class="error" id="errorMsg"></div>
+          </div>
+        </form>
+      </div>
+      
+      <script>
+        function loadRequestDetails() {
+          const selectElement = document.getElementById('request');
+          const selectedValue = selectElement.value;
+          
+          if (!selectedValue) {
+            document.getElementById('detailsSection').style.display = 'none';
+            return;
+          }
+          
+          const [rowIndex, requestId, requestor, amount] = selectedValue.split('|');
+          
+          const detailsHtml = \`
+            <div class="detail-row">
+              <span class="detail-label">Request ID:</span>
+              <span class="detail-value"><strong>\${requestId}</strong></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Requestor:</span>
+              <span class="detail-value">\${requestor}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Amount:</span>
+              <span class="detail-value"><strong>₹\${amount}</strong></span>
+            </div>
+          \`;
+          
+          document.getElementById('requestDetails').innerHTML = detailsHtml;
+          document.getElementById('detailsSection').style.display = 'block';
+        }
+        
+        function submitApproval(status) {
+          const selectElement = document.getElementById('request');
+          const selectedValue = selectElement.value;
+          
+          if (!selectedValue) {
+            document.getElementById('errorMsg').textContent = 'Please select a request';
+            document.getElementById('errorMsg').style.display = 'block';
+            return;
+          }
+          
+          const [rowIndex, requestId, requestor, amount] = selectedValue.split('|');
+          
+          const data = {
+            rowIndex: parseInt(rowIndex),
+            requestId: requestId,
+            status: status,
+            approverName: document.getElementById('approverName').value,
+            comments: document.getElementById('comments').value,
+            approvalDate: new Date().toLocaleString()
+          };
+          
+          if (!data.approverName) {
+            document.getElementById('errorMsg').textContent = 'Please enter approver name';
+            document.getElementById('errorMsg').style.display = 'block';
+            return;
+          }
+          
+          google.script.run.withSuccessHandler(function() {
+            document.getElementById('successMsg').style.display = 'block';
+            setTimeout(() => google.script.host.close(), 2000);
+          }).withFailureHandler(function(error) {
+            document.getElementById('errorMsg').textContent = 'Error: ' + error;
+            document.getElementById('errorMsg').style.display = 'block';
+          }).submitManagerApproval(data);
+        }
+      </script>
+    </body>
+    </html>
+  `);
+  
+  SpreadsheetApp.getUi().showModelessDialog(html, '👤 Manager Approval');
+}
+
+function submitManagerApproval(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Requests');
+  const range = sheet.getRange(data.rowIndex, 1, 1, 9);
+  const rowData = range.getValues()[0];
+  
+  // Update status
+  sheet.getRange(data.rowIndex, 4).setValue(data.status);
+  
+  // Update manager approval
+  sheet.getRange(data.rowIndex, 7).setValue(data.approverName);
+  
+  // Update approval date
+  sheet.getRange(data.rowIndex, 8).setValue(new Date());
+  
+  // Update notes with comments
+  sheet.getRange(data.rowIndex, 9).setValue(data.comments);
+  
+  // Send approval notification email
+  const requestorEmail = rowData[1]; // Email column (index 1)
+  const requestor = rowData[2];
+  const amount = rowData[4];
+  
+  const subject = data.status === 'APPROVED' 
+    ? `✅ Your Procurement Request Approved - ${data.requestId}`
+    : `❌ Your Procurement Request Rejected - ${data.requestId}`;
+  
+  const message = data.status === 'APPROVED'
+    ? `
+Dear ${requestor},
+
+Your procurement request has been APPROVED by the manager.
+
+Request Details:
+- Request ID: ${data.requestId}
+- Amount: ₹${amount}
+- Status: APPROVED
+- Approved By: ${data.approverName}
+- Approval Date: ${data.approvalDate}
+
+${data.comments ? `\nManager Comments:\n${data.comments}` : ''}
+
+Your request will now proceed to the next stage of the procurement process.
+
+Best regards,
+Procurement Team
+    `
+    : `
+Dear ${requestor},
+
+Your procurement request has been REJECTED by the manager.
+
+Request Details:
+- Request ID: ${data.requestId}
+- Amount: ₹${amount}
+- Status: REJECTED
+- Rejected By: ${data.approverName}
+- Rejection Date: ${data.approvalDate}
+
+${data.comments ? `\nManager Comments:\n${data.comments}` : ''}
+
+Please contact your manager for more information.
+
+Best regards,
+Procurement Team
+    `;
+  
+  if (requestorEmail && requestorEmail.includes('@')) {
+    GmailApp.sendEmail(requestorEmail, subject, message);
+  }
+  
+  Logger.log(`Request ${data.requestId} - ${data.status} by ${data.approverName}`);
 }
 
 // ============================================================================
@@ -36,25 +305,12 @@ function initializeSheets() {
     }
   });
   
-  // Setup Dashboard
   setupDashboard();
-  
-  // Setup Requests sheet
   setupRequestsSheet();
-  
-  // Setup PO Master sheet
   setupPOMasterSheet();
-  
-  // Setup Material Transit sheet
   setupMaterialTransitSheet();
-  
-  // Setup Quality Check sheet
   setupQualityCheckSheet();
-  
-  // Setup Payment sheet
   setupPaymentSheet();
-  
-  // Setup Vendor Master sheet
   setupVendorMasterSheet();
   
   SpreadsheetApp.getUi().alert('✅ All sheets initialized successfully!');
@@ -75,13 +331,13 @@ function setupDashboard() {
   sheet.appendRow(['Metric', 'Count', 'Status']);
   sheet.appendRow(['Total Requests', '=COUNTA(Requests!A2:A)', '']);
   sheet.appendRow(['Pending Approval', '=COUNTIF(Requests!D2:D,"Pending")', '']);
-  sheet.appendRow(['Approved POs', '=COUNTIF(Requests!D2:D,"Approved")', '']);
+  sheet.appendRow(['Approved Requests', '=COUNTIF(Requests!D2:D,"APPROVED")', '']);
+  sheet.appendRow(['Rejected Requests', '=COUNTIF(Requests!D2:D,"REJECTED")', '']);
   sheet.appendRow(['In Transit', '=COUNTIF(\'Material Transit\'!E2:E,"In Transit")', '']);
   sheet.appendRow(['Quality Passed', '=COUNTIF(\'Quality Check\'!D2:D,"PASS")', '']);
   sheet.appendRow(['Payments Pending', '=COUNTIF(Payment!F2:F,"Pending")', '']);
   sheet.appendRow(['Total Amount', '=SUM(\'PO Master\'!F2:F)', '']);
   
-  // Format headers
   const range = sheet.getRange(1, 1, 1, 3);
   range.setFontSize(14).setFontWeight('bold').setBackground('#1f4e78').setFontColor('white');
   
@@ -95,25 +351,23 @@ function setupRequestsSheet() {
   
   const headers = [
     'Request ID',
-    'Date',
+    'Email',
     'Requestor',
     'Status',
     'Amount',
     'Description',
     'Manager Approval',
     'Approval Date',
-    'Notes'
+    'Comments'
   ];
   
   sheet.appendRow(headers);
   
-  // Format headers
   const range = sheet.getRange(1, 1, 1, headers.length);
   range.setFontWeight('bold').setBackground('#4CAF50').setFontColor('white');
   
-  // Set column widths
   sheet.setColumnWidth(1, 120);
-  sheet.setColumnWidth(2, 100);
+  sheet.setColumnWidth(2, 150);
   sheet.setColumnWidth(3, 120);
   sheet.setColumnWidth(4, 120);
   sheet.setColumnWidth(5, 100);
@@ -621,7 +875,7 @@ function submitProcurementRequest(data) {
   const requestId = 'REQ-' + Utilities.getUuid().substring(0, 8).toUpperCase();
   const row = [
     requestId,
-    new Date(),
+    data.email,
     data.requestor,
     'Pending',
     data.amount,
@@ -729,7 +983,6 @@ function refreshDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dashboardSheet = ss.getSheetByName('Dashboard');
   
-  // Recalculate all formulas
   dashboardSheet.getDataRange().recalculate();
   
   SpreadsheetApp.getUi().alert('📊 Dashboard refreshed successfully!');
