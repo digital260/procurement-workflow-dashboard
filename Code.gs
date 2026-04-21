@@ -1,8 +1,8 @@
 /**
- * PROCUREMENT WORKFLOW DASHBOARD - WITH MANAGER APPROVAL
- * Complete implementation for Google Sheets
- * Author: Procurement Team
- * Version: 2.0
+ * PROCUREMENT WORKFLOW DASHBOARD - COMPLETE WITH PO GENERATION
+ * Auto-generates PO on manager approval
+ * Tracks all IDs automatically
+ * Version: 3.0
  */
 
 // ============================================================================
@@ -13,7 +13,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📊 Procurement Workflow')
     .addItem('📋 Start New Procurement', 'openProcurementForm')
-    .addItem('👤 Manager Approval', 'openApprovalForm')
+    .addItem('👤 Manager Approval & PO', 'openApprovalForm')
     .addItem('📦 Track Material', 'openTrackingForm')
     .addItem('✅ Quality Check', 'openQualityForm')
     .addItem('💳 Process Payment', 'openPaymentForm')
@@ -24,14 +24,14 @@ function onOpen() {
 }
 
 // ============================================================================
-// MANAGER APPROVAL SECTION
+// MANAGER APPROVAL & PO GENERATION SECTION
 // ============================================================================
 
 function openApprovalForm() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Requests');
   const data = sheet.getDataRange().getValues();
   
-  // Get pending requests
+  // Get pending requests (only those without PO)
   const pendingRequests = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][3] === 'Pending') {
@@ -41,6 +41,7 @@ function openApprovalForm() {
         requestor: data[i][2],
         amount: data[i][4],
         description: data[i][5],
+        email: data[i][1],
         rowIndex: i + 1
       });
     }
@@ -48,7 +49,7 @@ function openApprovalForm() {
   
   let optionsHtml = '<option value="">Select a Request to Approve</option>';
   pendingRequests.forEach(req => {
-    optionsHtml += `<option value="${req.rowIndex}|${req.requestId}|${req.requestor}|${req.amount}">
+    optionsHtml += `<option value="${req.rowIndex}|${req.requestId}|${req.requestor}|${req.amount}|${req.email}|${req.description}">
       ${req.requestId} - ${req.requestor} - ₹${req.amount}
     </option>`;
   });
@@ -60,9 +61,14 @@ function openApprovalForm() {
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1 { color: #1565c0; margin-bottom: 10px; font-size: 26px; }
         .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-button { padding: 10px 20px; background: #f0f0f0; border: none; cursor: pointer; border-radius: 4px; font-weight: 600; }
+        .tab-button.active { background: #1565c0; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; }
         input[type="text"], select, textarea {
@@ -96,54 +102,114 @@ function openApprovalForm() {
         .success { color: #4CAF50; display: none; margin-top: 10px; text-align: center; }
         .error { color: #f44336; display: none; margin-top: 10px; }
         .warning { background: #fff3cd; padding: 12px; border-radius: 4px; color: #856404; margin-bottom: 20px; border: 1px solid #ffc107; }
+        .po-section { background: #f0f8ff; padding: 15px; border-radius: 4px; margin-top: 15px; border-left: 4px solid #2196F3; }
+        .po-section h3 { color: #2196F3; margin-bottom: 10px; }
       </style>
     </head>
     <body>
       <div class="container">
-        <h1>👤 Manager Approval Portal</h1>
-        <p class="subtitle">Review and approve/reject procurement requests</p>
+        <h1>👤 Manager Approval & PO Portal</h1>
+        <p class="subtitle">Review requests, approve/reject, and auto-generate PO</p>
         
         <div class="info">
-          <strong>ℹ️ Instructions:</strong> Select a pending request below and either approve it to proceed to PO creation or reject it with comments.
+          <strong>ℹ️ Instructions:</strong> Select a pending request, review details, then either approve (to auto-generate PO) or reject with comments.
         </div>
         
-        ${pendingRequests.length === 0 ? 
-          `<div class="warning">✓ No pending requests to approve!</div>` 
-          : ''}
+        <div class="tabs">
+          <button class="tab-button active" onclick="switchTab('approval')">👤 Approval</button>
+          <button class="tab-button" onclick="switchTab('status')">📊 Status</button>
+        </div>
         
-        <form id="approvalForm">
-          <div class="form-group">
-            <label for="request">Pending Requests *</label>
-            <select id="request" required onchange="loadRequestDetails()">
-              ${optionsHtml}
-            </select>
-          </div>
+        <!-- APPROVAL TAB -->
+        <div id="approval" class="tab-content active">
+          ${pendingRequests.length === 0 ? 
+            `<div class="warning">✓ No pending requests to approve!</div>` 
+            : ''}
           
-          <div id="detailsSection" style="display: none;">
-            <div class="details" id="requestDetails"></div>
-            
+          <form id="approvalForm">
             <div class="form-group">
-              <label for="approverName">Approver Name *</label>
-              <input type="text" id="approverName" placeholder="Your name" required>
+              <label for="request">Pending Requests *</label>
+              <select id="request" required onchange="loadRequestDetails()">
+                ${optionsHtml}
+              </select>
             </div>
             
-            <div class="form-group">
-              <label for="comments">Comments/Notes</label>
-              <textarea id="comments" placeholder="Add any comments or feedback..."></textarea>
+            <div id="detailsSection" style="display: none;">
+              <div class="details" id="requestDetails"></div>
+              
+              <div class="form-group">
+                <label for="approverName">Approver Name *</label>
+                <input type="text" id="approverName" placeholder="Your name" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="comments">Comments/Notes</label>
+                <textarea id="comments" placeholder="Add any comments or feedback..."></textarea>
+              </div>
+              
+              <!-- PO DETAILS (shown when approving) -->
+              <div id="poDetailsSection" style="display: none;" class="po-section">
+                <h3>📄 PO Details (Auto-Generated)</h3>
+                
+                <div class="form-group">
+                  <label for="vendorName">Vendor Name *</label>
+                  <input type="text" id="vendorName" placeholder="Enter vendor name" required>
+                </div>
+                
+                <div class="form-group">
+                  <label for="vendorContact">Vendor Contact</label>
+                  <input type="text" id="vendorContact" placeholder="Vendor email/phone">
+                </div>
+                
+                <div class="form-group">
+                  <label for="items">Items Description *</label>
+                  <textarea id="items" placeholder="List items to be purchased" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label for="deliveryDate">Delivery Date *</label>
+                  <input type="date" id="deliveryDate" required>
+                </div>
+              </div>
+              
+              <div class="button-group">
+                <button type="button" class="approve" onclick="submitApproval('APPROVED')">✅ Approve & Generate PO</button>
+                <button type="button" class="reject" onclick="submitApproval('REJECTED')">❌ Reject Request</button>
+              </div>
+              
+              <div class="success" id="successMsg">✅ Request processed and PO generated successfully!</div>
+              <div class="error" id="errorMsg"></div>
             </div>
-            
-            <div class="button-group">
-              <button type="button" class="approve" onclick="submitApproval('APPROVED')">✅ Approve Request</button>
-              <button type="button" class="reject" onclick="submitApproval('REJECTED')">❌ Reject Request</button>
+          </form>
+        </div>
+        
+        <!-- STATUS TAB -->
+        <div id="status" class="tab-content">
+          <h3>📊 Request Status Summary</h3>
+          <div class="details">
+            <div class="detail-row">
+              <span class="detail-label">Total Pending:</span>
+              <span class="detail-value"><strong>${pendingRequests.length}</strong></span>
             </div>
-            
-            <div class="success" id="successMsg">✅ Request processed successfully!</div>
-            <div class="error" id="errorMsg"></div>
+            <div class="detail-row">
+              <span class="detail-label">Total Amount Pending:</span>
+              <span class="detail-value"><strong>₹${pendingRequests.reduce((sum, req) => sum + parseFloat(req.amount), 0).toLocaleString()}</strong></span>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
       
       <script>
+        function switchTab(tab) {
+          // Hide all tabs
+          document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+          document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+          
+          // Show selected tab
+          document.getElementById(tab).classList.add('active');
+          event.target.classList.add('active');
+        }
+        
         function loadRequestDetails() {
           const selectElement = document.getElementById('request');
           const selectedValue = selectElement.value;
@@ -153,7 +219,7 @@ function openApprovalForm() {
             return;
           }
           
-          const [rowIndex, requestId, requestor, amount] = selectedValue.split('|');
+          const [rowIndex, requestId, requestor, amount, email, description] = selectedValue.split('|');
           
           const detailsHtml = \`
             <div class="detail-row">
@@ -168,10 +234,15 @@ function openApprovalForm() {
               <span class="detail-label">Amount:</span>
               <span class="detail-value"><strong>₹\${amount}</strong></span>
             </div>
+            <div class="detail-row">
+              <span class="detail-label">Description:</span>
+              <span class="detail-value">\${description}</span>
+            </div>
           \`;
           
           document.getElementById('requestDetails').innerHTML = detailsHtml;
           document.getElementById('detailsSection').style.display = 'block';
+          document.getElementById('poDetailsSection').style.display = 'block';
         }
         
         function submitApproval(status) {
@@ -184,7 +255,13 @@ function openApprovalForm() {
             return;
           }
           
-          const [rowIndex, requestId, requestor, amount] = selectedValue.split('|');
+          const [rowIndex, requestId, requestor, amount, email, description] = selectedValue.split('|');
+          
+          if (status === 'APPROVED' && (!document.getElementById('vendorName').value || !document.getElementById('items').value)) {
+            document.getElementById('errorMsg').textContent = 'Please fill in Vendor Name and Items';
+            document.getElementById('errorMsg').style.display = 'block';
+            return;
+          }
           
           const data = {
             rowIndex: parseInt(rowIndex),
@@ -192,7 +269,15 @@ function openApprovalForm() {
             status: status,
             approverName: document.getElementById('approverName').value,
             comments: document.getElementById('comments').value,
-            approvalDate: new Date().toLocaleString()
+            approvalDate: new Date().toLocaleString(),
+            email: email,
+            requestor: requestor,
+            amount: amount,
+            // PO Details
+            vendorName: document.getElementById('vendorName').value,
+            vendorContact: document.getElementById('vendorContact').value,
+            items: document.getElementById('items').value,
+            deliveryDate: document.getElementById('deliveryDate').value
           };
           
           if (!data.approverName) {
@@ -201,9 +286,10 @@ function openApprovalForm() {
             return;
           }
           
-          google.script.run.withSuccessHandler(function() {
+          google.script.run.withSuccessHandler(function(result) {
             document.getElementById('successMsg').style.display = 'block';
-            setTimeout(() => google.script.host.close(), 2000);
+            document.getElementById('successMsg').innerHTML = result.message;
+            setTimeout(() => google.script.host.close(), 2500);
           }).withFailureHandler(function(error) {
             document.getElementById('errorMsg').textContent = 'Error: ' + error;
             document.getElementById('errorMsg').style.display = 'block';
@@ -214,81 +300,585 @@ function openApprovalForm() {
     </html>
   `);
   
-  SpreadsheetApp.getUi().showModelessDialog(html, '👤 Manager Approval');
+  SpreadsheetApp.getUi().showModelessDialog(html, '👤 Manager Approval & PO');
 }
 
 function submitManagerApproval(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Requests');
-  const range = sheet.getRange(data.rowIndex, 1, 1, 9);
+  const requestsSheet = ss.getSheetByName('Requests');
+  const range = requestsSheet.getRange(data.rowIndex, 1, 1, 9);
   const rowData = range.getValues()[0];
   
-  // Update status
-  sheet.getRange(data.rowIndex, 4).setValue(data.status);
+  // Update Requests sheet
+  requestsSheet.getRange(data.rowIndex, 4).setValue(data.status);
+  requestsSheet.getRange(data.rowIndex, 7).setValue(data.approverName);
+  requestsSheet.getRange(data.rowIndex, 8).setValue(new Date());
+  requestsSheet.getRange(data.rowIndex, 9).setValue(data.comments);
   
-  // Update manager approval
-  sheet.getRange(data.rowIndex, 7).setValue(data.approverName);
+  let resultMessage = '';
   
-  // Update approval date
-  sheet.getRange(data.rowIndex, 8).setValue(new Date());
-  
-  // Update notes with comments
-  sheet.getRange(data.rowIndex, 9).setValue(data.comments);
-  
-  // Send approval notification email
-  const requestorEmail = rowData[1]; // Email column (index 1)
-  const requestor = rowData[2];
-  const amount = rowData[4];
-  
-  const subject = data.status === 'APPROVED' 
-    ? `✅ Your Procurement Request Approved - ${data.requestId}`
-    : `❌ Your Procurement Request Rejected - ${data.requestId}`;
-  
-  const message = data.status === 'APPROVED'
-    ? `
-Dear ${requestor},
+  if (data.status === 'APPROVED') {
+    // Generate PO
+    const poNumber = generatePONumber();
+    
+    // Add to PO Master sheet
+    const poSheet = ss.getSheetByName('PO Master');
+    const poRow = [
+      poNumber,
+      data.requestId,
+      data.vendorName,
+      data.vendorContact,
+      new Date(),
+      data.amount,
+      data.items,
+      data.deliveryDate,
+      'Active',
+      data.approverName
+    ];
+    poSheet.appendRow(poRow);
+    
+    // Update Requests sheet with PO Number
+    requestsSheet.getRange(data.rowIndex, 10).setValue(poNumber);
+    
+    resultMessage = `✅ Request APPROVED!\n📄 PO Generated: <strong>${poNumber}</strong>`;
+    
+    // Send approval email with PO details
+    const subject = `✅ Your Procurement Approved - PO ${poNumber}`;
+    const message = `
+Dear ${data.requestor},
 
 Your procurement request has been APPROVED by the manager.
 
-Request Details:
+REQUEST DETAILS:
 - Request ID: ${data.requestId}
-- Amount: ₹${amount}
+- Amount: ₹${data.amount}
 - Status: APPROVED
-- Approved By: ${data.approverName}
-- Approval Date: ${data.approvalDate}
 
-${data.comments ? `\nManager Comments:\n${data.comments}` : ''}
+PURCHASE ORDER GENERATED:
+- PO Number: ${poNumber}
+- Vendor: ${data.vendorName}
+- Delivery Date: ${data.deliveryDate}
+- Items: ${data.items}
 
-Your request will now proceed to the next stage of the procurement process.
+${data.comments ? `Manager Comments:\n${data.comments}\n` : ''}
+
+You can now track your material using the PO Number: ${poNumber}
+
+Use the Material Tracking feature with:
+- PO Number: ${poNumber}
+- Your tracking number once you receive it from vendor
 
 Best regards,
 Procurement Team
-    `
-    : `
-Dear ${requestor},
+    `;
+    
+    if (data.email && data.email.includes('@')) {
+      GmailApp.sendEmail(data.email, subject, message);
+    }
+  } else {
+    resultMessage = `❌ Request REJECTED by Manager`;
+    
+    // Send rejection email
+    const subject = `❌ Your Procurement Request Rejected - ${data.requestId}`;
+    const message = `
+Dear ${data.requestor},
 
 Your procurement request has been REJECTED by the manager.
 
-Request Details:
+REQUEST DETAILS:
 - Request ID: ${data.requestId}
-- Amount: ₹${amount}
+- Amount: ₹${data.amount}
 - Status: REJECTED
 - Rejected By: ${data.approverName}
-- Rejection Date: ${data.approvalDate}
 
-${data.comments ? `\nManager Comments:\n${data.comments}` : ''}
+${data.comments ? `Manager Comments:\n${data.comments}` : 'No comments provided'}
 
 Please contact your manager for more information.
 
 Best regards,
 Procurement Team
     `;
-  
-  if (requestorEmail && requestorEmail.includes('@')) {
-    GmailApp.sendEmail(requestorEmail, subject, message);
+    
+    if (data.email && data.email.includes('@')) {
+      GmailApp.sendEmail(data.email, subject, message);
+    }
   }
   
   Logger.log(`Request ${data.requestId} - ${data.status} by ${data.approverName}`);
+  
+  return { message: resultMessage };
+}
+
+// Generate unique PO Number
+function generatePONumber() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const poSheet = ss.getSheetByName('PO Master');
+  const allData = poSheet.getDataRange().getValues();
+  
+  let maxNumber = 0;
+  for (let i = 1; i < allData.length; i++) {
+    const poNum = allData[i][0]; // PO Number column
+    if (poNum && poNum.startsWith('PO-')) {
+      const num = parseInt(poNum.replace('PO-', ''));
+      if (num > maxNumber) maxNumber = num;
+    }
+  }
+  
+  return 'PO-' + String(maxNumber + 1).padStart(5, '0');
+}
+
+// ============================================================================
+// MATERIAL TRACKING SECTION
+// ============================================================================
+
+function openTrackingForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const poSheet = ss.getSheetByName('PO Master');
+  const poData = poSheet.getDataRange().getValues();
+  
+  // Get approved POs
+  let poOptions = '<option value="">Select a PO Number</option>';
+  for (let i = 1; i < poData.length; i++) {
+    if (poData[i][0]) { // If PO exists
+      poOptions += `<option value="${poData[i][0]}|${poData[i][2]}|${poData[i][4]}">
+        ${poData[i][0]} - ${poData[i][2]} (₹${poData[i][5]})
+      </option>`;
+    }
+  }
+  
+  const html = HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #FF9800; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        .info { background: #fff3cd; padding: 12px; border-radius: 4px; margin-bottom: 20px; color: #856404; border: 1px solid #ffc107; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button:hover { background: #e68900; }
+        .po-details { background: #f0f8ff; padding: 12px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #FF9800; display: none; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .detail-label { font-weight: 600; color: #333; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📦 Track Material Transit</h1>
+        <p class="subtitle">Update shipment status and tracking</p>
+        
+        <div class="info">
+          <strong>ℹ️ Note:</strong> Select an approved PO to track material. PO number will be auto-filled.
+        </div>
+        
+        <form>
+          <div class="form-group">
+            <label for="poNumber">Select PO Number *</label>
+            <select id="poNumber" required onchange="loadPODetails()">
+              ${poOptions}
+            </select>
+          </div>
+          
+          <div id="poDetailsDiv" class="po-details">
+            <div class="detail-row">
+              <span class="detail-label">Vendor:</span>
+              <span id="vendorName"></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Amount:</span>
+              <span id="poAmount"></span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="trackingNumber">Tracking Number (from Courier) *</label>
+            <input type="text" id="trackingNumber" placeholder="e.g., TRK123456789" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="courier">Courier Name</label>
+            <input type="text" id="courier" placeholder="e.g., DHL, FedEx, Local Courier">
+          </div>
+          
+          <div class="form-group">
+            <label for="status">Status *</label>
+            <select id="status" required>
+              <option>Select Status</option>
+              <option>Dispatched</option>
+              <option>In Transit</option>
+              <option>Out for Delivery</option>
+              <option>Delivered</option>
+              <option>Delayed</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="location">Current Location</label>
+            <input type="text" id="location" placeholder="e.g., Delhi Warehouse, Mumbai">
+          </div>
+          
+          <div class="form-group">
+            <label for="expectedDelivery">Expected Delivery Date</label>
+            <input type="date" id="expectedDelivery">
+          </div>
+          
+          <div class="form-group">
+            <label for="notes">Additional Notes</label>
+            <textarea id="notes" placeholder="Any special notes" style="min-height: 60px;"></textarea>
+          </div>
+          
+          <button type="button" onclick="submitTracking()">📤 Update Transit Status</button>
+        </form>
+      </div>
+      
+      <script>
+        function loadPODetails() {
+          const poSelect = document.getElementById('poNumber');
+          const selectedValue = poSelect.value;
+          
+          if (!selectedValue) {
+            document.getElementById('poDetailsDiv').style.display = 'none';
+            return;
+          }
+          
+          const [poNum, vendor, amount] = selectedValue.split('|');
+          
+          document.getElementById('vendorName').textContent = vendor;
+          document.getElementById('poAmount').textContent = '₹' + amount;
+          document.getElementById('poDetailsDiv').style.display = 'block';
+        }
+        
+        function submitTracking() {
+          const poNumber = document.getElementById('poNumber').value;
+          
+          if (!poNumber) {
+            alert('❌ Please select a PO number');
+            return;
+          }
+          
+          const data = {
+            poNumber: poNumber,
+            trackingNumber: document.getElementById('trackingNumber').value,
+            courier: document.getElementById('courier').value,
+            status: document.getElementById('status').value,
+            location: document.getElementById('location').value,
+            expectedDelivery: document.getElementById('expectedDelivery').value,
+            notes: document.getElementById('notes').value
+          };
+          
+          if (!data.trackingNumber || !data.status) {
+            alert('❌ Please fill in Tracking Number and Status');
+            return;
+          }
+          
+          google.script.run.withSuccessHandler(function() {
+            alert('✅ Transit tracking updated!');
+            google.script.host.close();
+          }).submitMaterialTransit(data);
+        }
+      </script>
+    </body>
+    </html>
+  `);
+  
+  SpreadsheetApp.getUi().showModelessDialog(html, '📦 Track Material');
+}
+
+function submitMaterialTransit(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Material Transit');
+  
+  const transitId = 'TRAN-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+  const row = [
+    transitId,
+    data.poNumber,
+    data.trackingNumber,
+    new Date(),
+    data.status,
+    data.expectedDelivery,
+    '',
+    data.courier,
+    data.location,
+    data.notes
+  ];
+  
+  sheet.appendRow(row);
+  Logger.log('Transit tracking updated: ' + transitId + ' for PO: ' + data.poNumber);
+}
+
+// ============================================================================
+// QUALITY CHECK
+// ============================================================================
+
+function openQualityForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const transitSheet = ss.getSheetByName('Material Transit');
+  const transitData = transitSheet.getDataRange().getValues();
+  
+  // Get delivered items
+  let poOptions = '<option value="">Select a PO Number</option>';
+  for (let i = 1; i < transitData.length; i++) {
+    if (transitData[i][1]) { // PO Number
+      poOptions += `<option value="${transitData[i][1]}">
+        ${transitData[i][1]} - Tracking: ${transitData[i][2]}
+      </option>`;
+    }
+  }
+  
+  const html = HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { color: #9C27B0; margin-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button:hover { background: #7b1fa2; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>✅ Quality Check</h1>
+        
+        <div class="form-group">
+          <label for="poNumber">PO Number *</label>
+          <select id="poNumber" required>
+            ${poOptions}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="qualityStatus">Quality Status *</label>
+          <select id="qualityStatus" required>
+            <option>Select Status</option>
+            <option>PASS</option>
+            <option>FAIL</option>
+            <option>PARTIAL</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="defects">Defects Found (if any)</label>
+          <textarea id="defects" placeholder="Describe any defects"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="checkedBy">Checked By *</label>
+          <input type="text" id="checkedBy" placeholder="Your name" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">Additional Notes</label>
+          <textarea id="notes" placeholder="Any observations"></textarea>
+        </div>
+        
+        <button type="button" onclick="submitQuality()">✅ Submit Quality Check</button>
+      </div>
+      
+      <script>
+        function submitQuality() {
+          const data = {
+            poNumber: document.getElementById('poNumber').value,
+            qualityStatus: document.getElementById('qualityStatus').value,
+            defects: document.getElementById('defects').value,
+            checkedBy: document.getElementById('checkedBy').value,
+            notes: document.getElementById('notes').value
+          };
+          
+          if (!data.poNumber || !data.qualityStatus || !data.checkedBy) {
+            alert('❌ Please fill in all required fields');
+            return;
+          }
+          
+          google.script.run.withSuccessHandler(function() {
+            alert('✅ Quality check recorded!');
+            google.script.host.close();
+          }).submitQualityCheck(data);
+        }
+      </script>
+    </body>
+    </html>
+  `);
+  
+  SpreadsheetApp.getUi().showModelessDialog(html, '✅ Quality Check');
+}
+
+function submitQualityCheck(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Quality Check');
+  
+  const checkId = 'QC-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+  const row = [
+    checkId,
+    data.poNumber,
+    new Date(),
+    data.qualityStatus,
+    data.defects,
+    data.checkedBy,
+    new Date(),
+    data.qualityStatus === 'FAIL' ? 'Raise Debit Note' : 'Proceed to Payment',
+    data.qualityStatus === 'PASS' ? 'YES' : 'PENDING',
+    data.notes
+  ];
+  
+  sheet.appendRow(row);
+  Logger.log('Quality check recorded: ' + checkId);
+}
+
+// ============================================================================
+// PAYMENT PROCESSING
+// ============================================================================
+
+function openPaymentForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const poSheet = ss.getSheetByName('PO Master');
+  const poData = poSheet.getDataRange().getValues();
+  
+  let poOptions = '<option value="">Select a PO Number</option>';
+  for (let i = 1; i < poData.length; i++) {
+    if (poData[i][0]) {
+      poOptions += `<option value="${poData[i][0]}|${poData[i][2]}">
+        ${poData[i][0]} - ${poData[i][2]}
+      </option>`;
+    }
+  }
+  
+  const html = HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { color: #F44336; margin-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #F44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button:hover { background: #da190b; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>💳 Process Payment</h1>
+        
+        <div class="form-group">
+          <label for="poNumber">PO Number *</label>
+          <select id="poNumber" required onchange="updateVendor()">
+            ${poOptions}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="vendorName">Vendor Name</label>
+          <input type="text" id="vendorName" placeholder="Auto-filled" readonly>
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceNumber">Invoice Number *</label>
+          <input type="text" id="invoiceNumber" placeholder="Enter invoice number" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="amount">Amount (₹) *</label>
+          <input type="number" id="amount" placeholder="Amount" min="0" step="0.01" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="paymentMethod">Payment Method *</label>
+          <select id="paymentMethod" required>
+            <option>Select Method</option>
+            <option>Bank Transfer</option>
+            <option>Check</option>
+            <option>Credit Card</option>
+            <option>Cash</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="reference">Reference/Cheque Number</label>
+          <input type="text" id="reference" placeholder="Reference number">
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Payment notes"></textarea>
+        </div>
+        
+        <button type="button" onclick="submitPayment()">💳 Process Payment</button>
+      </div>
+      
+      <script>
+        function updateVendor() {
+          const poSelect = document.getElementById('poNumber');
+          const selectedValue = poSelect.value;
+          
+          if (selectedValue) {
+            const [poNum, vendor] = selectedValue.split('|');
+            document.getElementById('vendorName').value = vendor;
+          }
+        }
+        
+        function submitPayment() {
+          const data = {
+            poNumber: document.getElementById('poNumber').value,
+            invoiceNumber: document.getElementById('invoiceNumber').value,
+            vendorName: document.getElementById('vendorName').value,
+            amount: document.getElementById('amount').value,
+            paymentMethod: document.getElementById('paymentMethod').value,
+            reference: document.getElementById('reference').value,
+            notes: document.getElementById('notes').value
+          };
+          
+          if (!data.poNumber || !data.invoiceNumber || !data.amount) {
+            alert('❌ Please fill in all required fields');
+            return;
+          }
+          
+          google.script.run.withSuccessHandler(function() {
+            alert('✅ Payment processed!');
+            google.script.host.close();
+          }).submitPayment(data);
+        }
+      </script>
+    </body>
+    </html>
+  `);
+  
+  SpreadsheetApp.getUi().showModelessDialog(html, '💳 Process Payment');
+}
+
+function submitPayment(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Payment');
+  
+  const paymentId = 'PAY-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+  const row = [
+    paymentId,
+    data.poNumber,
+    data.invoiceNumber,
+    data.vendorName,
+    data.amount,
+    'Processed',
+    new Date(),
+    data.paymentMethod,
+    data.reference,
+    Session.getActiveUser().getEmail()
+  ];
+  
+  sheet.appendRow(row);
+  Logger.log('Payment processed: ' + paymentId);
 }
 
 // ============================================================================
@@ -320,22 +910,16 @@ function setupDashboard() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dashboard');
   sheet.clear();
   
-  const headers = [
-    'PROCUREMENT WORKFLOW DASHBOARD',
-    '',
-    new Date()
-  ];
-  
-  sheet.appendRow(headers);
+  sheet.appendRow(['PROCUREMENT WORKFLOW DASHBOARD', '', new Date()]);
   sheet.appendRow(['']);
   sheet.appendRow(['Metric', 'Count', 'Status']);
   sheet.appendRow(['Total Requests', '=COUNTA(Requests!A2:A)', '']);
   sheet.appendRow(['Pending Approval', '=COUNTIF(Requests!D2:D,"Pending")', '']);
   sheet.appendRow(['Approved Requests', '=COUNTIF(Requests!D2:D,"APPROVED")', '']);
-  sheet.appendRow(['Rejected Requests', '=COUNTIF(Requests!D2:D,"REJECTED")', '']);
+  sheet.appendRow(['Total POs Generated', '=COUNTA(\'PO Master\'!A2:A)', '']);
   sheet.appendRow(['In Transit', '=COUNTIF(\'Material Transit\'!E2:E,"In Transit")', '']);
   sheet.appendRow(['Quality Passed', '=COUNTIF(\'Quality Check\'!D2:D,"PASS")', '']);
-  sheet.appendRow(['Payments Pending', '=COUNTIF(Payment!F2:F,"Pending")', '']);
+  sheet.appendRow(['Payments Processed', '=COUNTA(Payment!A2:A)', '']);
   sheet.appendRow(['Total Amount', '=SUM(\'PO Master\'!F2:F)', '']);
   
   const range = sheet.getRange(1, 1, 1, 3);
@@ -358,7 +942,8 @@ function setupRequestsSheet() {
     'Description',
     'Manager Approval',
     'Approval Date',
-    'Comments'
+    'Comments',
+    'PO Number'
   ];
   
   sheet.appendRow(headers);
@@ -366,12 +951,9 @@ function setupRequestsSheet() {
   const range = sheet.getRange(1, 1, 1, headers.length);
   range.setFontWeight('bold').setBackground('#4CAF50').setFontColor('white');
   
-  sheet.setColumnWidth(1, 120);
-  sheet.setColumnWidth(2, 150);
-  sheet.setColumnWidth(3, 120);
-  sheet.setColumnWidth(4, 120);
-  sheet.setColumnWidth(5, 100);
-  sheet.setColumnWidth(6, 200);
+  for (let i = 0; i < headers.length; i++) {
+    sheet.setColumnWidth(i + 1, 120);
+  }
 }
 
 function setupPOMasterSheet() {
@@ -396,9 +978,9 @@ function setupPOMasterSheet() {
   const range = sheet.getRange(1, 1, 1, headers.length);
   range.setFontWeight('bold').setBackground('#2196F3').setFontColor('white');
   
-  sheet.setColumnWidth(1, 120);
-  sheet.setColumnWidth(2, 120);
-  sheet.setColumnWidth(3, 150);
+  for (let i = 0; i < headers.length; i++) {
+    sheet.setColumnWidth(i + 1, 120);
+  }
 }
 
 function setupMaterialTransitSheet() {
@@ -493,9 +1075,67 @@ function setupVendorMasterSheet() {
   range.setFontWeight('bold').setBackground('#00BCD4').setFontColor('white');
 }
 
-// ============================================================================
-// FORM DIALOGS
-// ============================================================================
+function refreshDashboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dashboardSheet = ss.getSheetByName('Dashboard');
+  
+  dashboardSheet.getDataRange().recalculate();
+  
+  SpreadsheetApp.getUi().alert('📊 Dashboard refreshed successfully!');
+}
+
+function submitProcurementRequest(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Requests');
+  
+  const requestId = 'REQ-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+  const row = [
+    requestId,
+    data.email,
+    data.requestor,
+    'Pending',
+    data.amount,
+    data.description,
+    '',
+    '',
+    data.notes,
+    ''
+  ];
+  
+  sheet.appendRow(row);
+  
+  const mailTo = data.email;
+  const subject = 'Procurement Request Submitted - ' + requestId;
+  const message = `
+Dear ${data.requestor},
+
+Your procurement request has been submitted successfully.
+
+Request Details:
+- Request ID: ${requestId}
+- Amount: ₹${data.amount}
+- Description: ${data.description}
+- Required Delivery: ${data.deliveryDate}
+- Status: Pending Manager Approval
+
+Next Steps:
+1. Your request will be reviewed by the manager
+2. If approved, a PO will be auto-generated with a unique PO Number
+3. You will receive the PO Number via email
+4. Use that PO Number to track your material
+
+You will receive updates as the request progresses through the workflow.
+
+Best regards,
+Procurement Team
+  `;
+  
+  if (mailTo && mailTo.includes('@')) {
+    GmailApp.sendEmail(mailTo, subject, message);
+  }
+  
+  Logger.log('Request submitted: ' + requestId);
+}
 
 function openProcurementForm() {
   const html = HtmlService.createHtmlOutput(`
@@ -533,8 +1173,6 @@ function openProcurementForm() {
         }
         button:hover { background: #45a049; }
         .info { background: #e3f2fd; padding: 12px; border-radius: 4px; margin-bottom: 20px; color: #1565c0; font-size: 13px; }
-        .success { color: #4CAF50; display: none; margin-top: 10px; }
-        .error { color: #f44336; display: none; margin-top: 10px; }
       </style>
     </head>
     <body>
@@ -568,11 +1206,6 @@ function openProcurementForm() {
           </div>
           
           <div class="form-group">
-            <label for="vendor">Preferred Vendor (Optional)</label>
-            <input type="text" id="vendor" placeholder="Vendor name">
-          </div>
-          
-          <div class="form-group">
             <label for="deliveryDate">Required Delivery Date *</label>
             <input type="date" id="deliveryDate" required>
           </div>
@@ -583,8 +1216,6 @@ function openProcurementForm() {
           </div>
           
           <button type="submit">📤 Submit Request</button>
-          <div class="success" id="successMsg">✅ Request submitted successfully!</div>
-          <div class="error" id="errorMsg"></div>
         </form>
       </div>
       
@@ -597,18 +1228,13 @@ function openProcurementForm() {
             email: document.getElementById('email').value,
             amount: document.getElementById('amount').value,
             description: document.getElementById('description').value,
-            vendor: document.getElementById('vendor').value,
             deliveryDate: document.getElementById('deliveryDate').value,
             notes: document.getElementById('notes').value
           };
           
-          google.script.run.withSuccessHandler(function(result) {
-            document.getElementById('successMsg').style.display = 'block';
-            document.getElementById('procurementForm').reset();
-            setTimeout(() => google.script.host.close(), 2000);
-          }).withFailureHandler(function(error) {
-            document.getElementById('errorMsg').textContent = 'Error: ' + error;
-            document.getElementById('errorMsg').style.display = 'block';
+          google.script.run.withSuccessHandler(function() {
+            alert('✅ Request submitted successfully!');
+            google.script.host.close();
           }).submitProcurementRequest(data);
         });
       </script>
@@ -617,373 +1243,4 @@ function openProcurementForm() {
   `);
   
   SpreadsheetApp.getUi().showModelessDialog(html, '🛒 New Procurement Request');
-}
-
-function openTrackingForm() {
-  const html = HtmlService.createHtmlOutput(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-        h1 { color: #FF9800; margin-bottom: 10px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; }
-        input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
-        button { width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
-        button:hover { background: #e68900; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>📦 Track Material Transit</h1>
-        
-        <div class="form-group">
-          <label for="poNumber">PO Number *</label>
-          <input type="text" id="poNumber" placeholder="Enter PO number" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="trackingNumber">Tracking Number *</label>
-          <input type="text" id="trackingNumber" placeholder="Enter tracking number" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="status">Status *</label>
-          <select id="status" required>
-            <option>Select Status</option>
-            <option>In Transit</option>
-            <option>Out for Delivery</option>
-            <option>Delivered</option>
-            <option>Delayed</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="location">Current Location</label>
-          <input type="text" id="location" placeholder="Warehouse / City">
-        </div>
-        
-        <div class="form-group">
-          <label for="expectedDelivery">Expected Delivery Date</label>
-          <input type="date" id="expectedDelivery">
-        </div>
-        
-        <button type="button" onclick="submitTracking()">📤 Update Transit Status</button>
-      </div>
-      
-      <script>
-        function submitTracking() {
-          const data = {
-            poNumber: document.getElementById('poNumber').value,
-            trackingNumber: document.getElementById('trackingNumber').value,
-            status: document.getElementById('status').value,
-            location: document.getElementById('location').value,
-            expectedDelivery: document.getElementById('expectedDelivery').value
-          };
-          
-          google.script.run.withSuccessHandler(function() {
-            alert('✅ Transit tracking updated!');
-            google.script.host.close();
-          }).submitMaterialTransit(data);
-        }
-      </script>
-    </body>
-    </html>
-  `);
-  
-  SpreadsheetApp.getUi().showModelessDialog(html, '📦 Track Material');
-}
-
-function openQualityForm() {
-  const html = HtmlService.createHtmlOutput(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-        h1 { color: #9C27B0; margin-bottom: 10px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; }
-        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
-        button { width: 100%; padding: 12px; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
-        button:hover { background: #7b1fa2; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>✅ Quality Check</h1>
-        
-        <div class="form-group">
-          <label for="poNumber">PO Number *</label>
-          <input type="text" id="poNumber" placeholder="Enter PO number" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="qualityStatus">Quality Status *</label>
-          <select id="qualityStatus" required>
-            <option>Select Status</option>
-            <option>PASS</option>
-            <option>FAIL</option>
-            <option>PARTIAL</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="defects">Defects Found (if any)</label>
-          <textarea id="defects" placeholder="Describe any defects"></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label for="checkedBy">Checked By *</label>
-          <input type="text" id="checkedBy" placeholder="Your name" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="notes">Additional Notes</label>
-          <textarea id="notes" placeholder="Any observations"></textarea>
-        </div>
-        
-        <button type="button" onclick="submitQuality()">✅ Submit Quality Check</button>
-      </div>
-      
-      <script>
-        function submitQuality() {
-          const data = {
-            poNumber: document.getElementById('poNumber').value,
-            qualityStatus: document.getElementById('qualityStatus').value,
-            defects: document.getElementById('defects').value,
-            checkedBy: document.getElementById('checkedBy').value,
-            notes: document.getElementById('notes').value
-          };
-          
-          google.script.run.withSuccessHandler(function() {
-            alert('✅ Quality check recorded!');
-            google.script.host.close();
-          }).submitQualityCheck(data);
-        }
-      </script>
-    </body>
-    </html>
-  `);
-  
-  SpreadsheetApp.getUi().showModelessDialog(html, '✅ Quality Check');
-}
-
-function openPaymentForm() {
-  const html = HtmlService.createHtmlOutput(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-        h1 { color: #F44336; margin-bottom: 10px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; }
-        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
-        button { width: 100%; padding: 12px; background: #F44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
-        button:hover { background: #da190b; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>💳 Process Payment</h1>
-        
-        <div class="form-group">
-          <label for="poNumber">PO Number *</label>
-          <input type="text" id="poNumber" placeholder="Enter PO number" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="invoiceNumber">Invoice Number *</label>
-          <input type="text" id="invoiceNumber" placeholder="Enter invoice number" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="vendorName">Vendor Name *</label>
-          <input type="text" id="vendorName" placeholder="Vendor name" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="amount">Amount (₹) *</label>
-          <input type="number" id="amount" placeholder="Amount" min="0" step="0.01" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="paymentMethod">Payment Method *</label>
-          <select id="paymentMethod" required>
-            <option>Select Method</option>
-            <option>Bank Transfer</option>
-            <option>Check</option>
-            <option>Credit Card</option>
-            <option>Cash</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="reference">Reference/Cheque Number</label>
-          <input type="text" id="reference" placeholder="Reference number">
-        </div>
-        
-        <div class="form-group">
-          <label for="notes">Notes</label>
-          <textarea id="notes" placeholder="Payment notes"></textarea>
-        </div>
-        
-        <button type="button" onclick="submitPayment()">💳 Process Payment</button>
-      </div>
-      
-      <script>
-        function submitPayment() {
-          const data = {
-            poNumber: document.getElementById('poNumber').value,
-            invoiceNumber: document.getElementById('invoiceNumber').value,
-            vendorName: document.getElementById('vendorName').value,
-            amount: document.getElementById('amount').value,
-            paymentMethod: document.getElementById('paymentMethod').value,
-            reference: document.getElementById('reference').value,
-            notes: document.getElementById('notes').value
-          };
-          
-          google.script.run.withSuccessHandler(function() {
-            alert('✅ Payment processed!');
-            google.script.host.close();
-          }).submitPayment(data);
-        }
-      </script>
-    </body>
-    </html>
-  `);
-  
-  SpreadsheetApp.getUi().showModelessDialog(html, '💳 Process Payment');
-}
-
-// ============================================================================
-// SUBMISSION HANDLERS
-// ============================================================================
-
-function submitProcurementRequest(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Requests');
-  
-  const requestId = 'REQ-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-  const row = [
-    requestId,
-    data.email,
-    data.requestor,
-    'Pending',
-    data.amount,
-    data.description,
-    '',
-    '',
-    data.notes
-  ];
-  
-  sheet.appendRow(row);
-  
-  // Send notification email
-  const mailTo = data.email;
-  const subject = 'Procurement Request Submitted - ' + requestId;
-  const message = `
-Dear ${data.requestor},
-
-Your procurement request has been submitted successfully.
-
-Request Details:
-- Request ID: ${requestId}
-- Amount: ₹${data.amount}
-- Description: ${data.description}
-- Required Delivery: ${data.deliveryDate}
-- Status: Pending Manager Approval
-
-You will receive updates as the request progresses through the workflow.
-
-Best regards,
-Procurement Team
-  `;
-  
-  GmailApp.sendEmail(mailTo, subject, message);
-  
-  Logger.log('Request submitted: ' + requestId);
-}
-
-function submitMaterialTransit(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Material Transit');
-  
-  const transitId = 'TRAN-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-  const row = [
-    transitId,
-    data.poNumber,
-    data.trackingNumber,
-    new Date(),
-    data.status,
-    data.expectedDelivery,
-    '',
-    '',
-    data.location,
-    ''
-  ];
-  
-  sheet.appendRow(row);
-  Logger.log('Transit tracking updated: ' + transitId);
-}
-
-function submitQualityCheck(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Quality Check');
-  
-  const checkId = 'QC-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-  const row = [
-    checkId,
-    data.poNumber,
-    new Date(),
-    data.qualityStatus,
-    data.defects,
-    data.checkedBy,
-    new Date(),
-    data.qualityStatus === 'FAIL' ? 'Raise Debit Note' : 'Proceed to Payment',
-    data.qualityStatus === 'PASS' ? 'YES' : 'PENDING',
-    data.notes
-  ];
-  
-  sheet.appendRow(row);
-  Logger.log('Quality check recorded: ' + checkId);
-}
-
-function submitPayment(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Payment');
-  
-  const paymentId = 'PAY-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-  const row = [
-    paymentId,
-    data.poNumber,
-    data.invoiceNumber,
-    data.vendorName,
-    data.amount,
-    'Processed',
-    new Date(),
-    data.paymentMethod,
-    data.reference,
-    Session.getActiveUser().getEmail()
-  ];
-  
-  sheet.appendRow(row);
-  Logger.log('Payment processed: ' + paymentId);
-}
-
-function refreshDashboard() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dashboardSheet = ss.getSheetByName('Dashboard');
-  
-  dashboardSheet.getDataRange().recalculate();
-  
-  SpreadsheetApp.getUi().alert('📊 Dashboard refreshed successfully!');
 }
