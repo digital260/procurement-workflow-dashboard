@@ -171,6 +171,7 @@
             padding: 30px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             max-width: 700px;
+            margin-bottom: 30px;
         }
 
         .form-section h2 {
@@ -222,6 +223,7 @@
             display: flex;
             gap: 10px;
             margin-top: 25px;
+            flex-wrap: wrap;
         }
 
         button {
@@ -238,6 +240,7 @@
             background: var(--primary);
             color: white;
             flex: 1;
+            min-width: 150px;
         }
 
         .btn-primary:hover {
@@ -250,6 +253,7 @@
             background: var(--success);
             color: white;
             flex: 1;
+            min-width: 150px;
         }
 
         .btn-success:hover {
@@ -260,6 +264,7 @@
             background: var(--warning);
             color: white;
             flex: 1;
+            min-width: 150px;
         }
 
         .btn-warning:hover {
@@ -270,6 +275,7 @@
             background: var(--danger);
             color: white;
             flex: 1;
+            min-width: 150px;
         }
 
         .btn-danger:hover {
@@ -291,6 +297,7 @@
             padding: 20px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             overflow-x: auto;
+            margin-bottom: 30px;
         }
 
         table {
@@ -351,6 +358,11 @@
             color: #721c24;
         }
 
+        .status-in transit {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 4px;
@@ -373,87 +385,6 @@
             background: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #eee;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            color: var(--primary);
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .close-btn:hover {
-            color: var(--dark);
-        }
-
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-
-        .tab-button {
-            padding: 12px 20px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-weight: 600;
-            color: #999;
-            transition: all 0.3s;
-        }
-
-        .tab-button.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-        }
-
-        .tab-button:hover {
-            color: var(--primary);
         }
 
         .info-box {
@@ -482,24 +413,32 @@
             font-weight: 500;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            flex-wrap: wrap;
         }
 
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+        .tab-button {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #999;
+            transition: all 0.3s;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .tab-button.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-button:hover {
+            color: var(--primary);
         }
 
         .footer {
@@ -540,6 +479,10 @@
 
             table th, table td {
                 padding: 8px;
+            }
+
+            .form-section {
+                max-width: 100%;
             }
         }
     </style>
@@ -745,7 +688,7 @@
                     </div>
                 </div>
 
-                <form id="approvalForm" style="display: none;">
+                <div id="approvalForm" style="display: none;">
                     <div class="form-group">
                         <label for="approverName">Your Name *</label>
                         <input type="text" id="approverName" placeholder="Manager name" required>
@@ -781,10 +724,10 @@
                     </div>
 
                     <div class="button-group">
-                        <button type="button" class="btn-success" onclick="submitApproval('APPROVED')">✅ Approve & Generate PO</button>
-                        <button type="button" class="btn-danger" onclick="submitApproval('REJECTED')">❌ Reject Request</button>
+                        <button type="button" class="btn-success" onclick="submitApprovalForm('APPROVED')">✅ Approve & Generate PO</button>
+                        <button type="button" class="btn-danger" onclick="submitApprovalForm('REJECTED')">❌ Reject Request</button>
                     </div>
-                </form>
+                </div>
                 <div id="approvalMessage"></div>
             </div>
 
@@ -836,7 +779,7 @@
                     </div>
                 </div>
 
-                <form id="trackingForm" style="display: none;">
+                <div id="trackingForm" style="display: none;">
                     <div class="form-group">
                         <label for="trackingNumber">Tracking Number *</label>
                         <input type="text" id="trackingNumber" placeholder="e.g., TRK123456789" required>
@@ -870,10 +813,10 @@
                     </div>
 
                     <div class="button-group">
-                        <button type="submit" class="btn-warning">📤 Update Tracking</button>
-                        <button type="reset" class="btn-secondary">Clear</button>
+                        <button type="button" class="btn-warning" onclick="submitTrackingForm()">📤 Update Tracking</button>
+                        <button type="button" class="btn-secondary" onclick="resetTrackingForm()">Clear</button>
                     </div>
-                </form>
+                </div>
                 <div id="trackingMessage"></div>
             </div>
 
@@ -909,15 +852,15 @@
 
                 <div class="form-group">
                     <label for="qualityPoNumber">Select PO Number *</label>
-                    <select id="qualityPoNumber" required>
+                    <select id="qualityPoNumber" onchange="loadQualityPODetails()" required>
                         <option value="">Loading...</option>
                     </select>
                 </div>
 
-                <form id="qualityForm" style="display: none;">
+                <div id="qualityForm" style="display: none;">
                     <div class="form-group">
                         <label for="qualityStatus">Quality Status *</label>
-                        <select id="qualityStatus" required>
+                        <select id="qualityStatus" onchange="toggleGRNInfo()" required>
                             <option value="">Select Status</option>
                             <option value="PASS">PASS ✅</option>
                             <option value="FAIL">FAIL ❌</option>
@@ -946,10 +889,10 @@
                     </div>
 
                     <div class="button-group">
-                        <button type="button" class="btn-success" onclick="submitQuality('PASS')">✅ PASS & Generate GRN</button>
-                        <button type="button" class="btn-danger" onclick="submitQuality('FAIL')">❌ FAIL & Debit Note</button>
+                        <button type="button" class="btn-success" onclick="submitQualityForm('PASS')">✅ PASS & Generate GRN</button>
+                        <button type="button" class="btn-danger" onclick="submitQualityForm('FAIL')">❌ FAIL & Debit Note</button>
                     </div>
-                </form>
+                </div>
                 <div id="qualityMessage"></div>
             </div>
 
@@ -997,7 +940,7 @@
                     </div>
                 </div>
 
-                <form id="paymentForm" style="display: none;">
+                <div id="paymentForm" style="display: none;">
                     <div class="form-group">
                         <label for="invoiceNumber">Invoice Number *</label>
                         <input type="text" id="invoiceNumber" placeholder="Enter invoice number" required>
@@ -1030,10 +973,10 @@
                     </div>
 
                     <div class="button-group">
-                        <button type="submit" class="btn-danger">💳 Process Payment</button>
-                        <button type="reset" class="btn-secondary">Clear</button>
+                        <button type="button" class="btn-danger" onclick="submitPaymentForm()">💳 Process Payment</button>
+                        <button type="button" class="btn-secondary" onclick="resetPaymentForm()">Clear</button>
                     </div>
-                </form>
+                </div>
                 <div id="paymentMessage"></div>
             </div>
 
@@ -1095,7 +1038,7 @@
             </div>
 
             <!-- ADD VENDOR -->
-            <div id="vendorAdd" class="tab-content">
+            <div id="vendorAdd" class="tab-content" style="display: none;">
                 <div class="form-section" style="max-width: 100%;">
                     <form id="vendorForm">
                         <div class="form-group">
@@ -1104,7 +1047,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="vendorContact Person">Contact Person</label>
+                            <label for="vendorContactPerson">Contact Person</label>
                             <input type="text" id="vendorContactPerson" placeholder="Name of contact person">
                         </div>
 
@@ -1139,7 +1082,7 @@
                         </div>
 
                         <div class="button-group">
-                            <button type="submit" class="btn-info">➕ Add Vendor</button>
+                            <button type="submit" class="btn-success">➕ Add Vendor</button>
                             <button type="reset" class="btn-secondary">Clear</button>
                         </div>
                     </form>
@@ -1162,8 +1105,8 @@
                     <div class="value" id="successfulPOs">0</div>
                 </div>
                 <div class="dashboard-card warning">
-                    <h3>Average Lead Time</h3>
-                    <div class="value" id="avgLeadTime">0 days</div>
+                    <h3>In Progress</h3>
+                    <div class="value" id="inProgress">0</div>
                 </div>
                 <div class="dashboard-card danger">
                     <h3>Quality Issues</h3>
@@ -1199,7 +1142,7 @@
 
     <script>
         // Local Storage Management
-        const APP_NAME = 'procurement_dashboard';
+        const APP_NAME = 'procurement_dashboard_v2';
         
         class ProcurementApp {
             constructor() {
@@ -1223,7 +1166,11 @@
             }
 
             setUserEmail() {
-                const email = prompt('Please enter your email:') || 'user@company.com';
+                let email = localStorage.getItem('userEmail');
+                if (!email) {
+                    email = prompt('Please enter your email:') || 'user@company.com';
+                    localStorage.setItem('userEmail', email);
+                }
                 document.getElementById('userEmail').textContent = email;
                 this.userEmail = email;
             }
@@ -1235,52 +1182,10 @@
                     this.submitProcurementRequest();
                 });
 
-                // Approval Form
-                document.getElementById('approvalForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.submitApproval();
-                });
-
-                // Tracking Form
-                document.getElementById('trackingForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.submitTracking();
-                });
-
-                // Quality Form
-                document.getElementById('qualityForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.submitQuality();
-                });
-
-                // Payment Form
-                document.getElementById('paymentForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.submitPayment();
-                });
-
                 // Vendor Form
                 document.getElementById('vendorForm').addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.submitVendor();
-                });
-
-                // Quality Status Change
-                document.getElementById('qualityStatus').addEventListener('change', (e) => {
-                    document.getElementById('grnInfo').style.display = e.target.value === 'PASS' ? 'block' : 'none';
-                });
-
-                // Load POs on quality/payment section open
-                window.addEventListener('switchedToQuality', () => {
-                    this.loadQualityPOs();
-                });
-
-                window.addEventListener('switchedToPayment', () => {
-                    this.loadPaymentPOs();
-                });
-
-                window.addEventListener('switchedToTracking', () => {
-                    this.loadTrackingPOs();
                 });
             }
 
@@ -1318,18 +1223,19 @@
                 this.data.requests.push(formData);
                 this.saveData();
 
-                document.getElementById('requestMessage').innerHTML = `<div class="alert alert-success">✅ Request submitted successfully! ID: ${formData.id}</div>`;
+                document.getElementById('requestMessage').innerHTML = `<div class="alert alert-success">✅ Request submitted successfully! ID: <strong>${formData.id}</strong></div>`;
                 document.getElementById('procurementForm').reset();
 
                 setTimeout(() => {
                     this.displayMyRequests();
                     this.loadPendingRequests();
+                    this.loadDashboard();
                 }, 1500);
             }
 
             displayMyRequests() {
                 const tbody = document.getElementById('myRequests');
-                const userRequests = this.data.requests.filter(r => r.email === this.userEmail);
+                const userRequests = this.data.requests;
 
                 if (userRequests.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No requests yet</td></tr>';
@@ -1339,7 +1245,7 @@
                 tbody.innerHTML = userRequests.map(req => `
                     <tr>
                         <td>${req.id}</td>
-                        <td>₹${req.amount.toLocaleString()}</td>
+                        <td>₹${req.amount.toLocaleString('en-IN')}</td>
                         <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
                         <td>${req.date}</td>
                         <td>${req.poNumber || '-'}</td>
@@ -1374,7 +1280,7 @@
 
                 document.getElementById('detailReqId').textContent = reqId;
                 document.getElementById('detailRequestor').textContent = requestor;
-                document.getElementById('detailAmount').textContent = '₹' + parseFloat(amount).toLocaleString();
+                document.getElementById('detailAmount').textContent = '₹' + parseFloat(amount).toLocaleString('en-IN');
                 document.getElementById('detailDescription').textContent = description;
 
                 document.getElementById('approvalDetails').style.display = 'block';
@@ -1382,111 +1288,6 @@
                 document.getElementById('poDetails').style.display = 'block';
 
                 this.currentApprovalRequest = { reqId, requestor, amount, description, email };
-            }
-
-            submitApproval(action) {
-                if (!this.currentApprovalRequest) {
-                    alert('Please select a request');
-                    return;
-                }
-
-                const approverName = document.getElementById('approverName').value;
-                if (!approverName) {
-                    alert('Please enter your name');
-                    return;
-                }
-
-                if (action === 'APPROVED') {
-                    if (!document.getElementById('vendorName').value || !document.getElementById('items').value) {
-                        alert('Please fill in Vendor Name and Items');
-                        return;
-                    }
-
-                    // Generate PO
-                    const poNumber = this.generateId('PO');
-                    const po = {
-                        id: poNumber,
-                        requestId: this.currentApprovalRequest.reqId,
-                        vendor: document.getElementById('vendorName').value,
-                        vendorContact: document.getElementById('vendorContact').value,
-                        items: document.getElementById('items').value,
-                        deliveryDate: document.getElementById('poDeliveryDate').value,
-                        amount: this.currentApprovalRequest.amount,
-                        date: new Date().toLocaleDateString(),
-                        status: 'Active',
-                        approvedBy: approverName,
-                        comments: document.getElementById('approvalComments').value
-                    };
-
-                    this.data.pos.push(po);
-
-                    // Add vendor to master
-                    this.addVendorToMaster({
-                        name: po.vendor,
-                        email: po.vendorContact,
-                        contact: '',
-                        phone: '',
-                        city: ''
-                    });
-
-                    // Update request status
-                    const req = this.data.requests.find(r => r.id === this.currentApprovalRequest.reqId);
-                    if (req) {
-                        req.status = 'APPROVED';
-                        req.poNumber = poNumber;
-                    }
-
-                    this.saveData();
-
-                    document.getElementById('approvalMessage').innerHTML = `
-                        <div class="alert alert-success">
-                            ✅ Request APPROVED!<br>
-                            📄 PO Generated: <strong>${poNumber}</strong><br>
-                            🏭 Vendor added to Master
-                        </div>
-                    `;
-                } else {
-                    const req = this.data.requests.find(r => r.id === this.currentApprovalRequest.reqId);
-                    if (req) {
-                        req.status = 'REJECTED';
-                        req.comments = document.getElementById('approvalComments').value;
-                    }
-                    this.saveData();
-
-                    document.getElementById('approvalMessage').innerHTML = `
-                        <div class="alert alert-error">
-                            ❌ Request REJECTED
-                        </div>
-                    `;
-                }
-
-                setTimeout(() => {
-                    document.getElementById('approvalForm').reset();
-                    this.loadPendingRequests();
-                    this.displayApprovalHistory();
-                    this.loadDashboard();
-                }, 1500);
-            }
-
-            displayApprovalHistory() {
-                const tbody = document.getElementById('approvalHistory');
-                const processed = this.data.requests.filter(r => r.status !== 'Pending');
-
-                if (processed.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No approvals yet</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = processed.map(req => `
-                    <tr>
-                        <td>${req.id}</td>
-                        <td>${req.requestor}</td>
-                        <td>₹${req.amount.toLocaleString()}</td>
-                        <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
-                        <td>${req.poNumber || '-'}</td>
-                        <td>${req.date}</td>
-                    </tr>
-                `).join('');
             }
 
             // MATERIAL TRACKING
@@ -1511,7 +1312,7 @@
 
                 const [poId, vendor, amount] = value.split('|');
                 document.getElementById('trackingVendor').textContent = vendor;
-                document.getElementById('trackingAmount').textContent = '₹' + parseFloat(amount).toLocaleString();
+                document.getElementById('trackingAmount').textContent = '₹' + parseFloat(amount).toLocaleString('en-IN');
                 
                 document.getElementById('trackingPoDetails').style.display = 'block';
                 document.getElementById('trackingForm').style.display = 'block';
@@ -1519,141 +1320,21 @@
                 this.currentTrackingPO = poId;
             }
 
-            submitTracking() {
-                const transit = {
-                    id: this.generateId('TRAN'),
-                    poNumber: this.currentTrackingPO,
-                    trackingNumber: document.getElementById('trackingNumber').value,
-                    courier: document.getElementById('courier').value,
-                    status: document.getElementById('trackingStatus').value,
-                    location: document.getElementById('location').value,
-                    expectedDelivery: document.getElementById('expectedDelivery').value,
-                    date: new Date().toLocaleDateString()
-                };
-
-                this.data.transit.push(transit);
-                this.saveData();
-
-                document.getElementById('trackingMessage').innerHTML = `<div class="alert alert-success">✅ Tracking updated! ID: ${transit.id}</div>`;
-                document.getElementById('trackingForm').reset();
-
-                setTimeout(() => {
-                    this.displayTransitHistory();
-                    this.loadDashboard();
-                }, 1500);
-            }
-
-            displayTransitHistory() {
-                const tbody = document.getElementById('transitHistory');
-
-                if (this.data.transit.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No tracking records yet</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = this.data.transit.map(t => `
-                    <tr>
-                        <td>${t.poNumber}</td>
-                        <td>${t.trackingNumber}</td>
-                        <td>${t.courier}</td>
-                        <td><span class="status-badge status-${t.status.toLowerCase()}">${t.status}</span></td>
-                        <td>${t.location}</td>
-                        <td>${t.expectedDelivery || '-'}</td>
-                    </tr>
-                `).join('');
-            }
-
-            // QUALITY CHECK & GRN
-            loadQualityPOs() {
+            // QUALITY CHECK
+            loadQualityPODetails() {
                 const select = document.getElementById('qualityPoNumber');
-                select.innerHTML = '<option value="">Select a PO</option>' + this.data.pos.map(po => `
-                    <option value="${po.id}">
-                        ${po.id} - ${po.vendor}
-                    </option>
-                `).join('');
-            }
+                const value = select.value;
 
-            submitQuality(decision) {
-                const poNumber = document.getElementById('qualityPoNumber').value;
-                if (!poNumber || !document.getElementById('checkedBy').value) {
-                    alert('Please select PO and enter checker name');
+                if (!value) {
+                    document.getElementById('qualityForm').style.display = 'none';
                     return;
                 }
 
-                const grnNumber = decision === 'PASS' ? this.generateId('GRN') : '';
-                const debitNote = decision === 'FAIL' ? this.generateId('DBIT') : '';
-
-                const quality = {
-                    id: this.generateId('QC'),
-                    poNumber: poNumber,
-                    status: document.getElementById('qualityStatus').value,
-                    defects: document.getElementById('defects').value,
-                    checkedBy: document.getElementById('checkedBy').value,
-                    grnNumber: grnNumber,
-                    debitNote: debitNote,
-                    notes: document.getElementById('qualityNotes').value,
-                    date: new Date().toLocaleDateString()
-                };
-
-                this.data.quality.push(quality);
-                this.saveData();
-
-                if (decision === 'PASS') {
-                    document.getElementById('qualityMessage').innerHTML = `
-                        <div class="alert alert-success">
-                            ✅ Quality PASS!<br>
-                            📄 GRN Generated: <strong>${grnNumber}</strong><br>
-                            ✓ Ready for Payment
-                        </div>
-                    `;
-                } else {
-                    document.getElementById('qualityMessage').innerHTML = `
-                        <div class="alert alert-error">
-                            ❌ Quality FAIL!<br>
-                            📝 Debit Note: <strong>${debitNote}</strong><br>
-                            ⚠️ Contact Vendor
-                        </div>
-                    `;
-                }
-
-                document.getElementById('qualityForm').reset();
-
-                setTimeout(() => {
-                    this.displayQualityHistory();
-                    this.loadDashboard();
-                }, 1500);
+                document.getElementById('qualityForm').style.display = 'block';
+                this.currentQualityPO = value;
             }
 
-            displayQualityHistory() {
-                const tbody = document.getElementById('qualityHistory');
-
-                if (this.data.quality.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No quality checks yet</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = this.data.quality.map(q => `
-                    <tr>
-                        <td>${q.id}</td>
-                        <td>${q.poNumber}</td>
-                        <td><span class="status-badge status-${q.status.toLowerCase()}">${q.status}</span></td>
-                        <td>${q.grnNumber || q.debitNote || '-'}</td>
-                        <td>${q.checkedBy}</td>
-                        <td>${q.date}</td>
-                    </tr>
-                `).join('');
-            }
-
-            // PAYMENT PROCESSING
-            loadPaymentPOs() {
-                const select = document.getElementById('paymentPoNumber');
-                select.innerHTML = '<option value="">Select a PO</option>' + this.data.pos.map(po => `
-                    <option value="${po.id}|${po.vendor}">
-                        ${po.id} - ${po.vendor}
-                    </option>
-                `).join('');
-            }
-
+            // PAYMENT
             loadPaymentDetails() {
                 const select = document.getElementById('paymentPoNumber');
                 const value = select.value;
@@ -1671,67 +1352,6 @@
                 document.getElementById('paymentForm').style.display = 'block';
 
                 this.currentPaymentPO = poId;
-            }
-
-            submitPayment() {
-                if (!this.currentPaymentPO) {
-                    alert('Please select a PO');
-                    return;
-                }
-
-                const payment = {
-                    id: this.generateId('PAY'),
-                    poNumber: this.currentPaymentPO,
-                    invoiceNumber: document.getElementById('invoiceNumber').value,
-                    amount: parseFloat(document.getElementById('paymentAmount').value),
-                    method: document.getElementById('paymentMethod').value,
-                    reference: document.getElementById('reference').value,
-                    notes: document.getElementById('paymentNotes').value,
-                    status: 'Processed',
-                    date: new Date().toLocaleDateString(),
-                    approvedBy: this.userEmail
-                };
-
-                if (!payment.invoiceNumber || !payment.amount || !payment.method) {
-                    alert('Please fill in all required fields');
-                    return;
-                }
-
-                this.data.payments.push(payment);
-                this.saveData();
-
-                document.getElementById('paymentMessage').innerHTML = `
-                    <div class="alert alert-success">
-                        ✅ Payment processed successfully!<br>
-                        Payment ID: <strong>${payment.id}</strong>
-                    </div>
-                `;
-                document.getElementById('paymentForm').reset();
-
-                setTimeout(() => {
-                    this.displayPaymentHistory();
-                    this.loadDashboard();
-                }, 1500);
-            }
-
-            displayPaymentHistory() {
-                const tbody = document.getElementById('paymentHistory');
-
-                if (this.data.payments.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No payments yet</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = this.data.payments.map(p => `
-                    <tr>
-                        <td>${p.id}</td>
-                        <td>${p.poNumber}</td>
-                        <td>${p.invoiceNumber}</td>
-                        <td>₹${p.amount.toLocaleString()}</td>
-                        <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
-                        <td>${p.date}</td>
-                    </tr>
-                `).join('');
             }
 
             // VENDORS
@@ -1775,6 +1395,7 @@
 
                 setTimeout(() => {
                     this.displayVendors();
+                    document.getElementById('vendorFormMessage').innerHTML = '';
                 }, 1500);
             }
 
@@ -1830,7 +1451,6 @@
                 const tbody = document.getElementById('recentActivities');
                 const activities = [];
 
-                // Collect all activities
                 this.data.requests.forEach(r => {
                     activities.push({
                         id: r.id,
@@ -1851,22 +1471,11 @@
                     });
                 });
 
-                this.data.quality.forEach(q => {
-                    activities.push({
-                        id: q.id,
-                        type: 'QC',
-                        desc: `${q.poNumber} - ${q.status}`,
-                        date: q.date,
-                        status: q.status
-                    });
-                });
-
                 if (activities.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No activities yet</td></tr>';
                     return;
                 }
 
-                // Sort by date (latest first) and show last 10
                 activities.sort((a, b) => new Date(b.date) - new Date(a.date));
                 const recent = activities.slice(0, 10);
 
@@ -1898,76 +1507,307 @@
                 app.displayMyRequests();
             } else if (section === 'approval') {
                 app.loadPendingRequests();
-                app.displayApprovalHistory();
             } else if (section === 'tracking') {
                 app.loadTrackingPOs();
-                app.displayTransitHistory();
-                window.dispatchEvent(new CustomEvent('switchedToTracking'));
             } else if (section === 'quality') {
-                app.loadQualityPOs();
-                app.displayQualityHistory();
-                window.dispatchEvent(new CustomEvent('switchedToQuality'));
+                app.data.pos.forEach(po => {
+                    const option = document.createElement('option');
+                    option.value = po.id;
+                    option.textContent = `${po.id} - ${po.vendor}`;
+                });
             } else if (section === 'payment') {
-                app.loadPaymentPOs();
-                app.displayPaymentHistory();
-                window.dispatchEvent(new CustomEvent('switchedToPayment'));
+                const select = document.getElementById('paymentPoNumber');
+                select.innerHTML = '<option value="">Select a PO</option>' + app.data.pos.map(po => `
+                    <option value="${po.id}|${po.vendor}">
+                        ${po.id} - ${po.vendor}
+                    </option>
+                `).join('');
             } else if (section === 'vendors') {
                 app.displayVendors();
             }
 
-            // Scroll to top
             window.scrollTo(0, 0);
         }
 
         // Switch Vendor Tab
         function switchVendorTab(tab) {
             const tabs = document.querySelectorAll('#vendors .tab-content');
-            tabs.forEach(t => t.classList.remove('active'));
-            document.getElementById('vendor' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-
             const buttons = document.querySelectorAll('#vendors .tab-button');
+            
+            tabs.forEach(t => t.style.display = 'none');
             buttons.forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
 
             if (tab === 'view') {
+                document.getElementById('vendorView').style.display = 'block';
                 app.displayVendors();
+            } else {
+                document.getElementById('vendorAdd').style.display = 'block';
             }
+
+            event.target.classList.add('active');
         }
 
-        // Global form submission functions
-        function submitApproval(action) {
-            app.submitApproval(action);
-        }
-
+        // Form submission functions
         function loadApprovalDetails() {
             app.loadApprovalDetails();
+        }
+
+        function submitApprovalForm(action) {
+            if (!app.currentApprovalRequest) {
+                alert('Please select a request');
+                return;
+            }
+
+            const approverName = document.getElementById('approverName').value;
+            if (!approverName) {
+                alert('Please enter your name');
+                return;
+            }
+
+            if (action === 'APPROVED') {
+                if (!document.getElementById('vendorName').value || !document.getElementById('items').value) {
+                    alert('Please fill in Vendor Name and Items');
+                    return;
+                }
+
+                const poNumber = app.generateId('PO');
+                const po = {
+                    id: poNumber,
+                    requestId: app.currentApprovalRequest.reqId,
+                    vendor: document.getElementById('vendorName').value,
+                    vendorContact: document.getElementById('vendorContact').value,
+                    items: document.getElementById('items').value,
+                    deliveryDate: document.getElementById('poDeliveryDate').value,
+                    amount: app.currentApprovalRequest.amount,
+                    date: new Date().toLocaleDateString(),
+                    status: 'Active',
+                    approvedBy: approverName
+                };
+
+                app.data.pos.push(po);
+                app.addVendorToMaster({
+                    name: po.vendor,
+                    email: po.vendorContact,
+                    contact: '',
+                    phone: '',
+                    city: ''
+                });
+
+                const req = app.data.requests.find(r => r.id === app.currentApprovalRequest.reqId);
+                if (req) {
+                    req.status = 'APPROVED';
+                    req.poNumber = poNumber;
+                }
+
+                app.saveData();
+
+                document.getElementById('approvalMessage').innerHTML = `
+                    <div class="alert alert-success">
+                        ✅ Request APPROVED!<br>
+                        📄 PO Generated: <strong>${poNumber}</strong><br>
+                        🏭 Vendor added to Master
+                    </div>
+                `;
+            } else {
+                const req = app.data.requests.find(r => r.id === app.currentApprovalRequest.reqId);
+                if (req) {
+                    req.status = 'REJECTED';
+                }
+                app.saveData();
+
+                document.getElementById('approvalMessage').innerHTML = `
+                    <div class="alert alert-error">
+                        ❌ Request REJECTED
+                    </div>
+                `;
+            }
+
+            setTimeout(() => {
+                document.getElementById('approvalForm').reset();
+                app.loadPendingRequests();
+                app.loadDashboard();
+            }, 1500);
         }
 
         function loadTrackingPODetails() {
             app.loadTrackingPODetails();
         }
 
-        function submitQuality(decision) {
-            app.submitQuality(decision);
+        function submitTrackingForm() {
+            if (!app.currentTrackingPO) {
+                alert('Please select a PO');
+                return;
+            }
+
+            const trackingNumber = document.getElementById('trackingNumber').value;
+            const status = document.getElementById('trackingStatus').value;
+
+            if (!trackingNumber || !status) {
+                alert('Please fill in Tracking Number and Status');
+                return;
+            }
+
+            const transit = {
+                id: app.generateId('TRAN'),
+                poNumber: app.currentTrackingPO,
+                trackingNumber: trackingNumber,
+                courier: document.getElementById('courier').value,
+                status: status,
+                location: document.getElementById('location').value,
+                expectedDelivery: document.getElementById('expectedDelivery').value,
+                date: new Date().toLocaleDateString()
+            };
+
+            app.data.transit.push(transit);
+            app.saveData();
+
+            document.getElementById('trackingMessage').innerHTML = `<div class="alert alert-success">✅ Tracking updated! ID: <strong>${transit.id}</strong></div>`;
+
+            setTimeout(() => {
+                resetTrackingForm();
+                app.loadDashboard();
+            }, 1500);
+        }
+
+        function resetTrackingForm() {
+            document.getElementById('trackingNumber').value = '';
+            document.getElementById('courier').value = '';
+            document.getElementById('trackingStatus').value = '';
+            document.getElementById('location').value = '';
+            document.getElementById('expectedDelivery').value = '';
+            document.getElementById('trackingMessage').innerHTML = '';
+        }
+
+        function loadQualityPODetails() {
+            const select = document.getElementById('qualityPoNumber');
+            const value = select.value;
+
+            if (!value) {
+                document.getElementById('qualityForm').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('qualityForm').style.display = 'block';
+            app.currentQualityPO = value;
+        }
+
+        function toggleGRNInfo() {
+            const status = document.getElementById('qualityStatus').value;
+            document.getElementById('grnInfo').style.display = status === 'PASS' ? 'block' : 'none';
+        }
+
+        function submitQualityForm(decision) {
+            if (!app.currentQualityPO) {
+                alert('Please select a PO');
+                return;
+            }
+
+            const status = document.getElementById('qualityStatus').value;
+            const checkedBy = document.getElementById('checkedBy').value;
+
+            if (!status || !checkedBy) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const grnNumber = decision === 'PASS' ? app.generateId('GRN') : '';
+            const debitNote = decision === 'FAIL' ? app.generateId('DBIT') : '';
+
+            const quality = {
+                id: app.generateId('QC'),
+                poNumber: app.currentQualityPO,
+                status: status,
+                defects: document.getElementById('defects').value,
+                checkedBy: checkedBy,
+                grnNumber: grnNumber,
+                debitNote: debitNote,
+                notes: document.getElementById('qualityNotes').value,
+                date: new Date().toLocaleDateString()
+            };
+
+            app.data.quality.push(quality);
+            app.saveData();
+
+            if (decision === 'PASS') {
+                document.getElementById('qualityMessage').innerHTML = `
+                    <div class="alert alert-success">
+                        ✅ Quality PASS!<br>
+                        📄 GRN Generated: <strong>${grnNumber}</strong><br>
+                        ✓ Ready for Payment
+                    </div>
+                `;
+            } else {
+                document.getElementById('qualityMessage').innerHTML = `
+                    <div class="alert alert-error">
+                        ❌ Quality FAIL!<br>
+                        📝 Debit Note: <strong>${debitNote}</strong><br>
+                        ⚠️ Contact Vendor
+                    </div>
+                `;
+            }
+
+            setTimeout(() => {
+                document.getElementById('qualityForm').reset();
+                document.getElementById('qualityStatus').value = '';
+                app.loadDashboard();
+            }, 1500);
         }
 
         function loadPaymentDetails() {
             app.loadPaymentDetails();
         }
 
-        function switchVendorTab(tab) {
-            const tabs = document.querySelectorAll('#vendors .tab-content');
-            const buttons = document.querySelectorAll('#vendors .tab-button');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            buttons.forEach(b => b.classList.remove('active'));
-
-            document.getElementById('vendor' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-            event.target.classList.add('active');
-
-            if (tab === 'view') {
-                app.displayVendors();
+        function submitPaymentForm() {
+            if (!app.currentPaymentPO) {
+                alert('Please select a PO');
+                return;
             }
+
+            const invoiceNumber = document.getElementById('invoiceNumber').value;
+            const amount = document.getElementById('paymentAmount').value;
+            const method = document.getElementById('paymentMethod').value;
+
+            if (!invoiceNumber || !amount || !method) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const payment = {
+                id: app.generateId('PAY'),
+                poNumber: app.currentPaymentPO,
+                invoiceNumber: invoiceNumber,
+                amount: parseFloat(amount),
+                method: method,
+                reference: document.getElementById('reference').value,
+                notes: document.getElementById('paymentNotes').value,
+                status: 'Processed',
+                date: new Date().toLocaleDateString(),
+                approvedBy: app.userEmail
+            };
+
+            app.data.payments.push(payment);
+            app.saveData();
+
+            document.getElementById('paymentMessage').innerHTML = `
+                <div class="alert alert-success">
+                    ✅ Payment processed successfully!<br>
+                    Payment ID: <strong>${payment.id}</strong>
+                </div>
+            `;
+
+            setTimeout(() => {
+                resetPaymentForm();
+                app.loadDashboard();
+            }, 1500);
+        }
+
+        function resetPaymentForm() {
+            document.getElementById('invoiceNumber').value = '';
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('paymentMethod').value = '';
+            document.getElementById('reference').value = '';
+            document.getElementById('paymentNotes').value = '';
+            document.getElementById('paymentMessage').innerHTML = '';
         }
 
         // Initialize App
