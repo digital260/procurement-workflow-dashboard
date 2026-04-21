@@ -1,8 +1,10 @@
 /**
- * PROCUREMENT WORKFLOW DASHBOARD - COMPLETE WITH PO GENERATION
- * Auto-generates PO on manager approval
- * Tracks all IDs automatically
- * Version: 3.0
+ * PROCUREMENT WORKFLOW DASHBOARD - v4.0
+ * Features:
+ * - Auto-generates PO on manager approval
+ * - Auto-generates GRN on quality check PASS
+ * - Auto-populates Vendor Master sheet
+ * - Complete workflow tracking
  */
 
 // ============================================================================
@@ -15,8 +17,9 @@ function onOpen() {
     .addItem('📋 Start New Procurement', 'openProcurementForm')
     .addItem('👤 Manager Approval & PO', 'openApprovalForm')
     .addItem('📦 Track Material', 'openTrackingForm')
-    .addItem('✅ Quality Check', 'openQualityForm')
+    .addItem('✅ Quality Check & GRN', 'openQualityForm')
     .addItem('💳 Process Payment', 'openPaymentForm')
+    .addItem('🏭 Vendor Master', 'openVendorForm')
     .addItem('📊 Refresh Dashboard', 'refreshDashboard')
     .addSeparator()
     .addItem('🔧 Setup Sheets', 'initializeSheets')
@@ -24,14 +27,13 @@ function onOpen() {
 }
 
 // ============================================================================
-// MANAGER APPROVAL & PO GENERATION SECTION
+// MANAGER APPROVAL & PO GENERATION
 // ============================================================================
 
 function openApprovalForm() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Requests');
   const data = sheet.getDataRange().getValues();
   
-  // Get pending requests (only those without PO)
   const pendingRequests = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][3] === 'Pending') {
@@ -104,6 +106,7 @@ function openApprovalForm() {
         .warning { background: #fff3cd; padding: 12px; border-radius: 4px; color: #856404; margin-bottom: 20px; border: 1px solid #ffc107; }
         .po-section { background: #f0f8ff; padding: 15px; border-radius: 4px; margin-top: 15px; border-left: 4px solid #2196F3; }
         .po-section h3 { color: #2196F3; margin-bottom: 10px; }
+        .vendor-note { background: #fff8e1; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #ff6f00; }
       </style>
     </head>
     <body>
@@ -147,9 +150,13 @@ function openApprovalForm() {
                 <textarea id="comments" placeholder="Add any comments or feedback..."></textarea>
               </div>
               
-              <!-- PO DETAILS (shown when approving) -->
+              <!-- PO DETAILS SECTION -->
               <div id="poDetailsSection" style="display: none;" class="po-section">
                 <h3>📄 PO Details (Auto-Generated)</h3>
+                
+                <div class="vendor-note">
+                  💡 <strong>Tip:</strong> Enter new vendor details below. If vendor exists, details will auto-populate when you use it in future.
+                </div>
                 
                 <div class="form-group">
                   <label for="vendorName">Vendor Name *</label>
@@ -157,8 +164,8 @@ function openApprovalForm() {
                 </div>
                 
                 <div class="form-group">
-                  <label for="vendorContact">Vendor Contact</label>
-                  <input type="text" id="vendorContact" placeholder="Vendor email/phone">
+                  <label for="vendorContact">Vendor Contact Email/Phone</label>
+                  <input type="text" id="vendorContact" placeholder="contact@vendor.com or 9876543210">
                 </div>
                 
                 <div class="form-group">
@@ -201,11 +208,8 @@ function openApprovalForm() {
       
       <script>
         function switchTab(tab) {
-          // Hide all tabs
           document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
           document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-          
-          // Show selected tab
           document.getElementById(tab).classList.add('active');
           event.target.classList.add('active');
         }
@@ -273,7 +277,6 @@ function openApprovalForm() {
             email: email,
             requestor: requestor,
             amount: amount,
-            // PO Details
             vendorName: document.getElementById('vendorName').value,
             vendorContact: document.getElementById('vendorContact').value,
             items: document.getElementById('items').value,
@@ -306,8 +309,6 @@ function openApprovalForm() {
 function submitManagerApproval(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const requestsSheet = ss.getSheetByName('Requests');
-  const range = requestsSheet.getRange(data.rowIndex, 1, 1, 9);
-  const rowData = range.getValues()[0];
   
   // Update Requests sheet
   requestsSheet.getRange(data.rowIndex, 4).setValue(data.status);
@@ -318,7 +319,7 @@ function submitManagerApproval(data) {
   let resultMessage = '';
   
   if (data.status === 'APPROVED') {
-    // Generate PO
+    // Generate PO Number
     const poNumber = generatePONumber();
     
     // Add to PO Master sheet
@@ -340,9 +341,12 @@ function submitManagerApproval(data) {
     // Update Requests sheet with PO Number
     requestsSheet.getRange(data.rowIndex, 10).setValue(poNumber);
     
-    resultMessage = `✅ Request APPROVED!\n📄 PO Generated: <strong>${poNumber}</strong>`;
+    // AUTO-ADD VENDOR TO VENDOR MASTER
+    addVendorToMaster(data.vendorName, data.vendorContact);
     
-    // Send approval email with PO details
+    resultMessage = `✅ Request APPROVED!\n📄 PO Generated: <strong>${poNumber}</strong>\n��� Vendor added to Master`;
+    
+    // Send approval email
     const subject = `✅ Your Procurement Approved - PO ${poNumber}`;
     const message = `
 Dear ${data.requestor},
@@ -363,10 +367,6 @@ PURCHASE ORDER GENERATED:
 ${data.comments ? `Manager Comments:\n${data.comments}\n` : ''}
 
 You can now track your material using the PO Number: ${poNumber}
-
-Use the Material Tracking feature with:
-- PO Number: ${poNumber}
-- Your tracking number once you receive it from vendor
 
 Best regards,
 Procurement Team
@@ -409,6 +409,39 @@ Procurement Team
   return { message: resultMessage };
 }
 
+// Add vendor to Vendor Master sheet
+function addVendorToMaster(vendorName, vendorContact) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const vendorSheet = ss.getSheetByName('Vendor Master');
+  const vendorData = vendorSheet.getDataRange().getValues();
+  
+  // Check if vendor already exists
+  for (let i = 1; i < vendorData.length; i++) {
+    if (vendorData[i][1] && vendorData[i][1].toLowerCase() === vendorName.toLowerCase()) {
+      Logger.log('Vendor already exists: ' + vendorName);
+      return; // Vendor already exists
+    }
+  }
+  
+  // Add new vendor
+  const vendorId = 'VEN-' + String(vendorData.length).padStart(5, '0');
+  const row = [
+    vendorId,
+    vendorName,
+    '',
+    vendorContact,
+    '',
+    '',
+    '',
+    '',
+    '',
+    'Yes'
+  ];
+  
+  vendorSheet.appendRow(row);
+  Logger.log('Vendor added: ' + vendorName);
+}
+
 // Generate unique PO Number
 function generatePONumber() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -417,7 +450,7 @@ function generatePONumber() {
   
   let maxNumber = 0;
   for (let i = 1; i < allData.length; i++) {
-    const poNum = allData[i][0]; // PO Number column
+    const poNum = allData[i][0];
     if (poNum && poNum.startsWith('PO-')) {
       const num = parseInt(poNum.replace('PO-', ''));
       if (num > maxNumber) maxNumber = num;
@@ -428,7 +461,7 @@ function generatePONumber() {
 }
 
 // ============================================================================
-// MATERIAL TRACKING SECTION
+// MATERIAL TRACKING
 // ============================================================================
 
 function openTrackingForm() {
@@ -436,11 +469,10 @@ function openTrackingForm() {
   const poSheet = ss.getSheetByName('PO Master');
   const poData = poSheet.getDataRange().getValues();
   
-  // Get approved POs
   let poOptions = '<option value="">Select a PO Number</option>';
   for (let i = 1; i < poData.length; i++) {
-    if (poData[i][0]) { // If PO exists
-      poOptions += `<option value="${poData[i][0]}|${poData[i][2]}|${poData[i][4]}">
+    if (poData[i][0]) {
+      poOptions += `<option value="${poData[i][0]}|${poData[i][2]}|${poData[i][5]}">
         ${poData[i][0]} - ${poData[i][2]} (₹${poData[i][5]})
       </option>`;
     }
@@ -459,7 +491,7 @@ function openTrackingForm() {
         .info { background: #fff3cd; padding: 12px; border-radius: 4px; margin-bottom: 20px; color: #856404; border: 1px solid #ffc107; }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; }
-        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
         button { width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
         button:hover { background: #e68900; }
         .po-details { background: #f0f8ff; padding: 12px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #FF9800; display: none; }
@@ -527,11 +559,6 @@ function openTrackingForm() {
             <input type="date" id="expectedDelivery">
           </div>
           
-          <div class="form-group">
-            <label for="notes">Additional Notes</label>
-            <textarea id="notes" placeholder="Any special notes" style="min-height: 60px;"></textarea>
-          </div>
-          
           <button type="button" onclick="submitTracking()">📤 Update Transit Status</button>
         </form>
       </div>
@@ -547,7 +574,6 @@ function openTrackingForm() {
           }
           
           const [poNum, vendor, amount] = selectedValue.split('|');
-          
           document.getElementById('vendorName').textContent = vendor;
           document.getElementById('poAmount').textContent = '₹' + amount;
           document.getElementById('poDetailsDiv').style.display = 'block';
@@ -567,8 +593,7 @@ function openTrackingForm() {
             courier: document.getElementById('courier').value,
             status: document.getElementById('status').value,
             location: document.getElementById('location').value,
-            expectedDelivery: document.getElementById('expectedDelivery').value,
-            notes: document.getElementById('notes').value
+            expectedDelivery: document.getElementById('expectedDelivery').value
           };
           
           if (!data.trackingNumber || !data.status) {
@@ -604,7 +629,7 @@ function submitMaterialTransit(data) {
     '',
     data.courier,
     data.location,
-    data.notes
+    ''
   ];
   
   sheet.appendRow(row);
@@ -612,7 +637,7 @@ function submitMaterialTransit(data) {
 }
 
 // ============================================================================
-// QUALITY CHECK
+// QUALITY CHECK & GRN GENERATION
 // ============================================================================
 
 function openQualityForm() {
@@ -620,10 +645,9 @@ function openQualityForm() {
   const transitSheet = ss.getSheetByName('Material Transit');
   const transitData = transitSheet.getDataRange().getValues();
   
-  // Get delivered items
   let poOptions = '<option value="">Select a PO Number</option>';
   for (let i = 1; i < transitData.length; i++) {
-    if (transitData[i][1]) { // PO Number
+    if (transitData[i][1]) {
       poOptions += `<option value="${transitData[i][1]}">
         ${transitData[i][1]} - Tracking: ${transitData[i][2]}
       </option>`;
@@ -637,62 +661,114 @@ function openQualityForm() {
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-        h1 { color: #9C27B0; margin-bottom: 10px; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #9C27B0; margin-bottom: 10px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        .info { background: #f3e5f5; padding: 12px; border-radius: 4px; margin-bottom: 20px; color: #7b1fa2; border-left: 4px solid #9C27B0; }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; }
         input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
-        button { width: 100%; padding: 12px; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
-        button:hover { background: #7b1fa2; }
+        textarea { min-height: 80px; }
+        .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        button { 
+          flex: 1;
+          padding: 12px; 
+          border: none; 
+          border-radius: 4px; 
+          cursor: pointer; 
+          font-weight: bold;
+          color: white;
+        }
+        .pass { background: #4CAF50; }
+        .pass:hover { background: #45a049; }
+        .fail { background: #f44336; }
+        .fail:hover { background: #da190b; }
+        .grn-section { background: #e8f5e9; padding: 15px; border-radius: 4px; margin-top: 15px; border-left: 4px solid #4CAF50; display: none; }
+        .grn-section h3 { color: #2e7d32; margin-bottom: 10px; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .detail-label { font-weight: 600; }
       </style>
     </head>
     <body>
       <div class="container">
-        <h1>✅ Quality Check</h1>
+        <h1>✅ Quality Check & GRN</h1>
+        <p class="subtitle">Inspect material and auto-generate GRN if quality passes</p>
         
-        <div class="form-group">
-          <label for="poNumber">PO Number *</label>
-          <select id="poNumber" required>
-            ${poOptions}
-          </select>
+        <div class="info">
+          <strong>ℹ️ Note:</strong> Select PASS to auto-generate GRN (Goods Receipt Note). Select FAIL to raise debit note.
         </div>
         
-        <div class="form-group">
-          <label for="qualityStatus">Quality Status *</label>
-          <select id="qualityStatus" required>
-            <option>Select Status</option>
-            <option>PASS</option>
-            <option>FAIL</option>
-            <option>PARTIAL</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="defects">Defects Found (if any)</label>
-          <textarea id="defects" placeholder="Describe any defects"></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label for="checkedBy">Checked By *</label>
-          <input type="text" id="checkedBy" placeholder="Your name" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="notes">Additional Notes</label>
-          <textarea id="notes" placeholder="Any observations"></textarea>
-        </div>
-        
-        <button type="button" onclick="submitQuality()">✅ Submit Quality Check</button>
+        <form id="qualityForm">
+          <div class="form-group">
+            <label for="poNumber">PO Number *</label>
+            <select id="poNumber" required onchange="loadPODetails()">
+              ${poOptions}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="qualityStatus">Quality Status *</label>
+            <select id="qualityStatus" required>
+              <option>Select Status</option>
+              <option>PASS</option>
+              <option>FAIL</option>
+              <option>PARTIAL</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="defects">Defects Found (if any)</label>
+            <textarea id="defects" placeholder="Describe any defects"></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="checkedBy">Checked By *</label>
+            <input type="text" id="checkedBy" placeholder="Your name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="notes">Additional Notes</label>
+            <textarea id="notes" placeholder="Any observations"></textarea>
+          </div>
+          
+          <!-- GRN SECTION (shown when PASS selected) -->
+          <div id="grnSection" class="grn-section">
+            <h3>📄 GRN Auto-Generation</h3>
+            <div class="detail-row">
+              <span class="detail-label">Status:</span>
+              <span><strong>GRN will be auto-generated on PASS</strong></span>
+            </div>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">GRN (Goods Receipt Note) number will be created automatically and linked to this PO.</p>
+          </div>
+          
+          <div class="button-group">
+            <button type="button" class="pass" onclick="submitQuality('PASS')">✅ PASS & Generate GRN</button>
+            <button type="button" class="fail" onclick="submitQuality('FAIL')">❌ FAIL & Raise Debit Note</button>
+          </div>
+        </form>
       </div>
       
       <script>
-        function submitQuality() {
+        document.getElementById('qualityStatus').addEventListener('change', function() {
+          if (this.value === 'PASS') {
+            document.getElementById('grnSection').style.display = 'block';
+          } else {
+            document.getElementById('grnSection').style.display = 'none';
+          }
+        });
+        
+        function loadPODetails() {
+          // Can add additional details loading here
+        }
+        
+        function submitQuality(decision) {
           const data = {
             poNumber: document.getElementById('poNumber').value,
             qualityStatus: document.getElementById('qualityStatus').value,
             defects: document.getElementById('defects').value,
             checkedBy: document.getElementById('checkedBy').value,
-            notes: document.getElementById('notes').value
+            notes: document.getElementById('notes').value,
+            decision: decision
           };
           
           if (!data.poNumber || !data.qualityStatus || !data.checkedBy) {
@@ -700,8 +776,8 @@ function openQualityForm() {
             return;
           }
           
-          google.script.run.withSuccessHandler(function() {
-            alert('✅ Quality check recorded!');
+          google.script.run.withSuccessHandler(function(result) {
+            alert(result.message);
             google.script.host.close();
           }).submitQualityCheck(data);
         }
@@ -710,29 +786,79 @@ function openQualityForm() {
     </html>
   `);
   
-  SpreadsheetApp.getUi().showModelessDialog(html, '✅ Quality Check');
+  SpreadsheetApp.getUi().showModelessDialog(html, '✅ Quality Check & GRN');
 }
 
 function submitQualityCheck(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Quality Check');
+  const qualitySheet = ss.getSheetByName('Quality Check');
   
   const checkId = 'QC-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-  const row = [
-    checkId,
-    data.poNumber,
-    new Date(),
-    data.qualityStatus,
-    data.defects,
-    data.checkedBy,
-    new Date(),
-    data.qualityStatus === 'FAIL' ? 'Raise Debit Note' : 'Proceed to Payment',
-    data.qualityStatus === 'PASS' ? 'YES' : 'PENDING',
-    data.notes
-  ];
+  let grnNumber = '';
   
-  sheet.appendRow(row);
-  Logger.log('Quality check recorded: ' + checkId);
+  if (data.decision === 'PASS') {
+    // Generate GRN Number
+    grnNumber = generateGRNNumber();
+    
+    // Add GRN to Quality Check sheet
+    const row = [
+      checkId,
+      data.poNumber,
+      new Date(),
+      data.qualityStatus,
+      data.defects,
+      data.checkedBy,
+      new Date(),
+      'Proceed to Payment',
+      grnNumber,
+      data.notes
+    ];
+    qualitySheet.appendRow(row);
+    
+    // Create entry in a separate GRN tracking (using Quality Check column)
+    Logger.log('Quality check passed and GRN generated: ' + grnNumber + ' for PO: ' + data.poNumber);
+    
+    return { message: `✅ Quality PASS!\n📄 GRN Generated: ${grnNumber}\n✓ Proceed to Payment` };
+  } else {
+    // FAIL - Raise Debit Note
+    const debitNoteNumber = 'DBIT-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+    
+    const row = [
+      checkId,
+      data.poNumber,
+      new Date(),
+      data.qualityStatus,
+      data.defects,
+      data.checkedBy,
+      new Date(),
+      'Raise Debit Note: ' + debitNoteNumber,
+      'PENDING',
+      data.notes
+    ];
+    qualitySheet.appendRow(row);
+    
+    Logger.log('Quality check failed. Debit note: ' + debitNoteNumber + ' for PO: ' + data.poNumber);
+    
+    return { message: `❌ Quality FAIL!\n📝 Debit Note: ${debitNoteNumber}\n⚠️ Contact Vendor` };
+  }
+}
+
+// Generate unique GRN Number
+function generateGRNNumber() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const qualitySheet = ss.getSheetByName('Quality Check');
+  const allData = qualitySheet.getDataRange().getValues();
+  
+  let maxNumber = 0;
+  for (let i = 1; i < allData.length; i++) {
+    const grnNum = allData[i][8]; // GRN column
+    if (grnNum && grnNum.startsWith('GRN-')) {
+      const num = parseInt(grnNum.replace('GRN-', ''));
+      if (num > maxNumber) maxNumber = num;
+    }
+  }
+  
+  return 'GRN-' + String(maxNumber + 1).padStart(5, '0');
 }
 
 // ============================================================================
@@ -882,7 +1008,243 @@ function submitPayment(data) {
 }
 
 // ============================================================================
-// INITIALIZATION FUNCTIONS
+// VENDOR MASTER MANAGEMENT
+// ============================================================================
+
+function openVendorForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const vendorSheet = ss.getSheetByName('Vendor Master');
+  const vendorData = vendorSheet.getDataRange().getValues();
+  
+  let vendorOptions = '<option value="">Select a Vendor</option>';
+  for (let i = 1; i < vendorData.length; i++) {
+    if (vendorData[i][1]) {
+      vendorOptions += `<option value="${vendorData[i][0]}|${vendorData[i][1]}|${vendorData[i][2]}|${vendorData[i][3]}|${vendorData[i][4]}|${vendorData[i][5]}|${vendorData[i][6]}|${vendorData[i][7]}|${vendorData[i][8]}">
+        ${vendorData[i][1]} - ${vendorData[i][3]}
+      </option>`;
+    }
+  }
+  
+  const html = HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #00BCD4; margin-bottom: 10px; font-size: 24px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-button { padding: 10px 20px; background: #f0f0f0; border: none; cursor: pointer; border-radius: 4px; font-weight: 600; }
+        .tab-button.active { background: #00BCD4; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input[type="text"], input[type="email"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #00BCD4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button:hover { background: #0097a7; }
+        .info { background: #e0f2f1; padding: 12px; border-radius: 4px; margin-bottom: 20px; color: #00695c; border-left: 4px solid #00BCD4; }
+        .vendor-list { max-height: 400px; overflow-y: auto; }
+        .vendor-item { background: #f9f9f9; padding: 12px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #00BCD4; }
+        .vendor-item strong { color: #00695c; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🏭 Vendor Master Management</h1>
+        
+        <div class="tabs">
+          <button class="tab-button active" onclick="switchTab('view')">📋 View Vendors</button>
+          <button class="tab-button" onclick="switchTab('add')">➕ Add New Vendor</button>
+        </div>
+        
+        <!-- VIEW TAB -->
+        <div id="view" class="tab-content active">
+          <div class="info">
+            <strong>ℹ️ Note:</strong> All vendors added during PO creation appear automatically here.
+          </div>
+          
+          <div class="vendor-list" id="vendorList">
+            <div class="vendor-item">Loading vendors...</div>
+          </div>
+        </div>
+        
+        <!-- ADD TAB -->
+        <div id="add" class="tab-content">
+          <form id="vendorForm">
+            <div class="form-group">
+              <label for="vendorName">Vendor Name *</label>
+              <input type="text" id="vendorName" placeholder="Company name" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="contactPerson">Contact Person</label>
+              <input type="text" id="contactPerson" placeholder="Name of contact person">
+            </div>
+            
+            <div class="form-group">
+              <label for="email">Email *</label>
+              <input type="email" id="email" placeholder="vendor@company.com" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <input type="text" id="phone" placeholder="9876543210">
+            </div>
+            
+            <div class="form-group">
+              <label for="address">Address</label>
+              <textarea id="address" placeholder="Full address" style="min-height: 60px;"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="city">City</label>
+              <input type="text" id="city" placeholder="City">
+            </div>
+            
+            <div class="form-group">
+              <label for="bankDetails">Bank Details</label>
+              <textarea id="bankDetails" placeholder="Account number, IFSC code, etc." style="min-height: 60px;"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="paymentTerms">Payment Terms</label>
+              <input type="text" id="paymentTerms" placeholder="e.g., Net 30">
+            </div>
+            
+            <button type="button" onclick="addNewVendor()">➕ Add Vendor</button>
+          </form>
+        </div>
+      </div>
+      
+      <script>
+        function switchTab(tab) {
+          document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+          document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+          document.getElementById(tab).classList.add('active');
+          event.target.classList.add('active');
+          
+          if (tab === 'view') {
+            loadVendorList();
+          }
+        }
+        
+        function loadVendorList() {
+          google.script.run.getVendorList(function(vendors) {
+            let html = '';
+            if (vendors.length === 0) {
+              html = '<div class="vendor-item">No vendors found</div>';
+            } else {
+              vendors.forEach(v => {
+                html += \`
+                  <div class="vendor-item">
+                    <strong>\${v.name}</strong><br>
+                    📧 \${v.email}<br>
+                    📱 \${v.phone || 'N/A'}<br>
+                    📍 \${v.city || 'N/A'}
+                  </div>
+                \`;
+              });
+            }
+            document.getElementById('vendorList').innerHTML = html;
+          });
+        }
+        
+        function addNewVendor() {
+          const data = {
+            vendorName: document.getElementById('vendorName').value,
+            contactPerson: document.getElementById('contactPerson').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            address: document.getElementById('address').value,
+            city: document.getElementById('city').value,
+            bankDetails: document.getElementById('bankDetails').value,
+            paymentTerms: document.getElementById('paymentTerms').value
+          };
+          
+          if (!data.vendorName || !data.email) {
+            alert('❌ Please fill in Vendor Name and Email');
+            return;
+          }
+          
+          google.script.run.withSuccessHandler(function() {
+            alert('✅ Vendor added successfully!');
+            document.getElementById('vendorForm').reset();
+            google.script.host.close();
+          }).addVendorFromForm(data);
+        }
+        
+        // Load vendors on page open
+        window.addEventListener('load', function() {
+          loadVendorList();
+        });
+      </script>
+    </body>
+    </html>
+  `);
+  
+  SpreadsheetApp.getUi().showModelessDialog(html, '🏭 Vendor Master');
+}
+
+function getVendorList() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const vendorSheet = ss.getSheetByName('Vendor Master');
+  const vendorData = vendorSheet.getDataRange().getValues();
+  
+  let vendors = [];
+  for (let i = 1; i < vendorData.length; i++) {
+    if (vendorData[i][1]) {
+      vendors.push({
+        id: vendorData[i][0],
+        name: vendorData[i][1],
+        contact: vendorData[i][2],
+        email: vendorData[i][3],
+        phone: vendorData[i][4],
+        address: vendorData[i][5],
+        city: vendorData[i][6],
+        bank: vendorData[i][7],
+        terms: vendorData[i][8]
+      });
+    }
+  }
+  
+  return vendors;
+}
+
+function addVendorFromForm(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const vendorSheet = ss.getSheetByName('Vendor Master');
+  const vendorData = vendorSheet.getDataRange().getValues();
+  
+  // Check if vendor already exists
+  for (let i = 1; i < vendorData.length; i++) {
+    if (vendorData[i][1] && vendorData[i][1].toLowerCase() === data.vendorName.toLowerCase()) {
+      throw new Error('Vendor already exists!');
+    }
+  }
+  
+  // Add new vendor
+  const vendorId = 'VEN-' + String(vendorData.length).padStart(5, '0');
+  const row = [
+    vendorId,
+    data.vendorName,
+    data.contactPerson,
+    data.email,
+    data.phone,
+    data.address,
+    data.city,
+    data.bankDetails,
+    data.paymentTerms,
+    'Yes'
+  ];
+  
+  vendorSheet.appendRow(row);
+  Logger.log('Vendor added: ' + data.vendorName);
+}
+
+// ============================================================================
+// INITIALIZATION & DASHBOARD
 // ============================================================================
 
 function initializeSheets() {
@@ -918,8 +1280,10 @@ function setupDashboard() {
   sheet.appendRow(['Approved Requests', '=COUNTIF(Requests!D2:D,"APPROVED")', '']);
   sheet.appendRow(['Total POs Generated', '=COUNTA(\'PO Master\'!A2:A)', '']);
   sheet.appendRow(['In Transit', '=COUNTIF(\'Material Transit\'!E2:E,"In Transit")', '']);
+  sheet.appendRow(['GRN Generated', '=COUNTIF(\'Quality Check\'!I2:I,"GRN-*")', '']);
   sheet.appendRow(['Quality Passed', '=COUNTIF(\'Quality Check\'!D2:D,"PASS")', '']);
   sheet.appendRow(['Payments Processed', '=COUNTA(Payment!A2:A)', '']);
+  sheet.appendRow(['Total Vendors', '=COUNTA(\'Vendor Master\'!A2:A)', '']);
   sheet.appendRow(['Total Amount', '=SUM(\'PO Master\'!F2:F)', '']);
   
   const range = sheet.getRange(1, 1, 1, 3);
@@ -1019,7 +1383,7 @@ function setupQualityCheckSheet() {
     'Checked By',
     'Check Date',
     'Action Required',
-    'GRNN Generated',
+    'GRN Number',
     'Notes'
   ];
   
