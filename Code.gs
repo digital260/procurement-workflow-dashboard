@@ -1,3 +1,236 @@
+// Deploy this as Google Apps Script Web App
+// Set up: Extensions → Deploy → New Deployment → Web App → Execute as [Your Email] → Who has access: Anyone
+
+const SHEET_ID = '1Hreo2l4Bbuoqxn667KTIWRLcvo7NqY3BwTKo_OZ8yVE'; // Replace with your sheet ID
+
+function doGet(e) {
+  return HtmlService.createHtmlOutput('Web App is running');
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    
+    // Route to appropriate function
+    if (data.action === 'addRequest') {
+      return addRequest(data.payload, ss);
+    } else if (data.action === 'addApproval') {
+      return addApproval(data.payload, ss);
+    } else if (data.action === 'addTracking') {
+      return addTracking(data.payload, ss);
+    } else if (data.action === 'addQuality') {
+      return addQuality(data.payload, ss);
+    } else if (data.action === 'addPayment') {
+      return addPayment(data.payload, ss);
+    } else if (data.action === 'addVendor') {
+      return addVendor(data.payload, ss);
+    } else if (data.action === 'getData') {
+      return getData(ss);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Unknown action'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(e) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: e.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function addRequest(data, ss) {
+  const sheet = ss.getSheetByName('Requests') || ss.insertSheet('Requests');
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Request ID', 'Email', 'Requestor', 'Status', 'Amount', 'Description', 'Delivery Date', 'Notes', 'Date Submitted', 'PO Number']);
+  }
+  
+  sheet.appendRow([
+    data.id,
+    data.email,
+    data.requestor,
+    data.status,
+    data.amount,
+    data.description,
+    data.deliveryDate,
+    data.notes,
+    data.date,
+    ''
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Request added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function addApproval(data, ss) {
+  const sheet = ss.getSheetByName('Requests');
+  const values = sheet.getDataRange().getValues();
+  
+  // Find and update the request
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] === data.requestId) {
+      sheet.getRange(i + 1, 4).setValue(data.status); // Status
+      sheet.getRange(i + 1, 10).setValue(data.poNumber); // PO Number
+      break;
+    }
+  }
+  
+  // Add PO
+  const poSheet = ss.getSheetByName('PO Master') || ss.insertSheet('PO Master');
+  
+  if (poSheet.getLastRow() === 0) {
+    poSheet.appendRow(['PO Number', 'Request ID', 'Vendor Name', 'Vendor Contact', 'PO Date', 'Amount', 'Items', 'Delivery Date', 'Status', 'Created By']);
+  }
+  
+  poSheet.appendRow([
+    data.poNumber,
+    data.requestId,
+    data.vendor,
+    data.vendorContact,
+    new Date(),
+    data.amount,
+    data.items,
+    data.deliveryDate,
+    'Active',
+    data.approvedBy
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Approval added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function addTracking(data, ss) {
+  const sheet = ss.getSheetByName('Material Transit') || ss.insertSheet('Material Transit');
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Transit ID', 'PO Number', 'Tracking Number', 'Dispatch Date', 'Status', 'Expected Delivery', 'Actual Delivery', 'Courier', 'Location', 'Notes']);
+  }
+  
+  sheet.appendRow([
+    data.id,
+    data.poNumber,
+    data.trackingNumber,
+    new Date(),
+    data.status,
+    data.expectedDelivery,
+    '',
+    data.courier,
+    data.location,
+    ''
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Tracking added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function addQuality(data, ss) {
+  const sheet = ss.getSheetByName('Quality Check') || ss.insertSheet('Quality Check');
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Check ID', 'PO Number', 'Received Date', 'Quality Status', 'Defects Found', 'Checked By', 'Check Date', 'Action Required', 'GRN Number', 'Notes']);
+  }
+  
+  sheet.appendRow([
+    data.id,
+    data.poNumber,
+    new Date(),
+    data.status,
+    data.defects,
+    data.checkedBy,
+    new Date(),
+    data.status === 'FAIL' ? 'Raise Debit Note' : 'Proceed to Payment',
+    data.grnNumber,
+    data.notes
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Quality check added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function addPayment(data, ss) {
+  const sheet = ss.getSheetByName('Payment') || ss.insertSheet('Payment');
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Payment ID', 'PO Number', 'Invoice Number', 'Vendor Name', 'Amount', 'Status', 'Payment Date', 'Payment Method', 'Reference', 'Approval By']);
+  }
+  
+  sheet.appendRow([
+    data.id,
+    data.poNumber,
+    data.invoiceNumber,
+    data.vendor,
+    data.amount,
+    'Processed',
+    new Date(),
+    data.method,
+    data.reference,
+    data.approvedBy
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Payment added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function addVendor(data, ss) {
+  const sheet = ss.getSheetByName('Vendor Master') || ss.insertSheet('Vendor Master');
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Vendor ID', 'Vendor Name', 'Contact Person', 'Email', 'Phone', 'Address', 'City', 'Bank Details', 'Payment Terms', 'Active']);
+  }
+  
+  sheet.appendRow([
+    data.id,
+    data.name,
+    data.contact,
+    data.email,
+    data.phone,
+    data.address,
+    data.city,
+    data.bank,
+    data.terms,
+    'Yes'
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Vendor added'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getData(ss) {
+  const data = {};
+  
+  // Get all sheet data
+  const sheetNames = ['Requests', 'PO Master', 'Material Transit', 'Quality Check', 'Payment', 'Vendor Master'];
+  
+  for (let name of sheetNames) {
+    try {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        const values = sheet.getDataRange().getValues();
+        data[name] = values;
+      }
+    } catch(e) {
+      // Sheet doesn't exist yet
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, data: data}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+/**
+ * Serves the procurement dashboard as a web app.
+ */
+function doGet() {
+  return HtmlService.createTemplateFromFile('procurement-dashboard')
+    .evaluate()
+    .setTitle('Procurement Workflow Dashboard')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Helper function to include other HTML files (CSS/JS) if you split them.
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
 /**
  * PROCUREMENT WORKFLOW DASHBOARD - v4.0
  * Features:
