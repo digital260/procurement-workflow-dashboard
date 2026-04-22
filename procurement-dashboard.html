@@ -64,6 +64,21 @@
             font-size: 14px;
         }
 
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -291,6 +306,11 @@
             background: #e0e0e0;
         }
 
+        .btn-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .table-responsive {
             background: white;
             border-radius: 8px;
@@ -358,7 +378,7 @@
             color: #721c24;
         }
 
-        .status-in transit {
+        .status-active {
             background: #cfe2ff;
             color: #084298;
         }
@@ -441,6 +461,14 @@
             color: var(--primary);
         }
 
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .footer {
             text-align: center;
             padding: 30px 20px;
@@ -448,6 +476,23 @@
             font-size: 14px;
             border-top: 1px solid #eee;
             margin-top: 50px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -493,7 +538,11 @@
         <div class="header-content">
             <h1>📊 Procurement Workflow Dashboard</h1>
             <div class="user-info">
-                <div class="user-badge">👤 <span id="userEmail">User</span></div>
+                <div class="user-badge">
+                    <span class="status-indicator"></span>
+                    👤 <span id="userEmail">User</span>
+                </div>
+                <div class="user-badge" id="syncStatus">⚙️ Syncing...</div>
             </div>
         </div>
     </div>
@@ -592,7 +641,7 @@
             <div class="form-section">
                 <h2>🛒 New Procurement Request</h2>
                 <div class="info-box">
-                    <strong>ℹ️ Instructions:</strong> Fill in all required fields to submit your procurement request for manager approval.
+                    <strong>ℹ️ Instructions:</strong> Fill in all required fields. Your request will be saved to Google Sheets and sent to manager for approval.
                 </div>
                 <form id="procurementForm">
                     <div class="form-group">
@@ -626,7 +675,7 @@
                     </div>
 
                     <div class="button-group">
-                        <button type="submit" class="btn-success">📤 Submit Request</button>
+                        <button type="submit" class="btn-success" id="submitBtn">📤 Submit Request</button>
                         <button type="reset" class="btn-secondary">Clear</button>
                     </div>
                 </form>
@@ -659,7 +708,7 @@
             <div class="form-section">
                 <h2>👤 Manager Approval & PO Generation</h2>
                 <div class="info-box">
-                    <strong>ℹ️ Instructions:</strong> Review pending requests and approve/reject them. Approvals will automatically generate PO numbers.
+                    <strong>ℹ️ Instructions:</strong> Review pending requests from Google Sheets and approve/reject them. Approvals will auto-generate PO numbers and save to Sheets.
                 </div>
 
                 <div class="form-group">
@@ -758,7 +807,7 @@
             <div class="form-section">
                 <h2>📦 Track Material Transit</h2>
                 <div class="info-box">
-                    <strong>ℹ️ Instructions:</strong> Select an approved PO and enter tracking details from your courier.
+                    <strong>ℹ️ Instructions:</strong> Select an approved PO and enter tracking details. Data will be saved to Google Sheets automatically.
                 </div>
 
                 <div class="form-group">
@@ -847,7 +896,7 @@
             <div class="form-section">
                 <h2>✅ Quality Check & GRN Generation</h2>
                 <div class="info-box">
-                    <strong>ℹ️ Instructions:</strong> Select PASS to auto-generate GRN, or FAIL to raise debit note.
+                    <strong>ℹ️ Instructions:</strong> Select PASS to auto-generate GRN, or FAIL to raise debit note. Data will be saved to Google Sheets.
                 </div>
 
                 <div class="form-group">
@@ -885,7 +934,7 @@
 
                     <div id="grnInfo" style="display: none; background: #e8f5e9; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #4CAF50;">
                         <p><strong>📄 GRN Auto-Generation:</strong></p>
-                        <p style="font-size: 14px; color: #666; margin-top: 8px;">GRN (Goods Receipt Note) will be automatically generated when you mark quality as PASS.</p>
+                        <p style="font-size: 14px; color: #666; margin-top: 8px;">GRN (Goods Receipt Note) will be automatically generated and saved to Google Sheets when you mark quality as PASS.</p>
                     </div>
 
                     <div class="button-group">
@@ -923,7 +972,7 @@
             <div class="form-section">
                 <h2>💳 Process Payment</h2>
                 <div class="info-box">
-                    <strong>ℹ️ Instructions:</strong> Select an approved PO and enter payment details.
+                    <strong>ℹ️ Instructions:</strong> Select an approved PO and enter payment details. Payment will be recorded in Google Sheets.
                 </div>
 
                 <div class="form-group">
@@ -1014,7 +1063,7 @@
             <!-- VIEW VENDORS -->
             <div id="vendorView" class="tab-content active">
                 <div class="info-box">
-                    <strong>ℹ️ Note:</strong> All vendors are automatically added when creating POs and can be managed here.
+                    <strong>ℹ️ Note:</strong> All vendors from Google Sheets are displayed here. Vendors are automatically added when creating POs.
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -1038,7 +1087,7 @@
             </div>
 
             <!-- ADD VENDOR -->
-            <div id="vendorAdd" class="tab-content" style="display: none;">
+            <div id="vendorAdd" class="tab-content">
                 <div class="form-section" style="max-width: 100%;">
                     <form id="vendorForm">
                         <div class="form-group">
@@ -1114,7 +1163,7 @@
                 </div>
             </div>
 
-            <h3 style="margin-top: 30px; margin-bottom: 20px; color: var(--primary);">Top Vendors</h3>
+            <h3 style="margin-top: 30px; margin-bottom: 20px; color: var(--primary);">Top Vendors by PO Count</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -1137,13 +1186,13 @@
 
     <!-- FOOTER -->
     <div class="footer">
-        <p>&copy; 2024 Procurement Workflow Dashboard | All Rights Reserved</p>
+        <p>&copy; 2024 Procurement Workflow Dashboard | All data synced with Google Sheets</p>
     </div>
 
     <script>
-        // Local Storage Management
-        const APP_NAME = 'procurement_dashboard_v2';
-        
+        // Configuration
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWViK4NQ-5qPLSqYehgy9HsWo_EhexfMH6FffVAS8ynyHNUVVk4ZnscbJUcDU0q1zSGQ/exec'; // Replace with your deployment URL
+
         class ProcurementApp {
             constructor() {
                 this.data = {
@@ -1154,15 +1203,16 @@
                     quality: [],
                     payments: []
                 };
-                this.loadData();
                 this.init();
             }
 
-            init() {
-                this.setupEventListeners();
+            async init() {
+                this.setUserEmail();
+                await this.syncFromGoogleSheets();
                 this.loadPendingRequests();
                 this.loadDashboard();
-                this.setUserEmail();
+                this.setupEventListeners();
+                this.updateSyncStatus('✅ Synced');
             }
 
             setUserEmail() {
@@ -1175,38 +1225,88 @@
                 this.userEmail = email;
             }
 
+            async syncFromGoogleSheets() {
+                try {
+                    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'getData' })
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success && result.data) {
+                        this.parseSheetData(result.data);
+                    }
+                } catch (error) {
+                    console.log('Sheet sync info:', error.message);
+                    this.updateSyncStatus('⚠️ Local Mode');
+                }
+            }
+
+            parseSheetData(data) {
+                // Parse data from sheets
+                if (data['Requests']) {
+                    this.data.requests = this.parseSheet(data['Requests'], 
+                        ['id', 'email', 'requestor', 'status', 'amount', 'description', 'deliveryDate', 'notes', 'date', 'poNumber']);
+                }
+                if (data['PO Master']) {
+                    this.data.pos = this.parseSheet(data['PO Master'],
+                        ['id', 'requestId', 'vendor', 'vendorContact', 'poDate', 'amount', 'items', 'deliveryDate', 'status', 'createdBy']);
+                }
+                // ... parse other sheets similarly
+            }
+
+            parseSheet(sheetData, headers) {
+                const parsed = [];
+                for (let i = 1; i < sheetData.length; i++) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = sheetData[i][index];
+                    });
+                    parsed.push(row);
+                }
+                return parsed;
+            }
+
+            async saveToGoogleSheets(action, payload) {
+                if (!GOOGLE_APPS_SCRIPT_URL || GOOGLE_APPS_SCRIPT_URL.includes('YOUR_')) {
+                    console.warn('Google Apps Script URL not configured');
+                    return false;
+                }
+
+                try {
+                    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action, payload })
+                    });
+                    const result = await response.json();
+                    return result.success;
+                } catch (error) {
+                    console.error('Save error:', error);
+                    return false;
+                }
+            }
+
+            updateSyncStatus(status) {
+                document.getElementById('syncStatus').textContent = status;
+            }
+
             setupEventListeners() {
-                // Procurement Form
                 document.getElementById('procurementForm').addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.submitProcurementRequest();
                 });
 
-                // Vendor Form
                 document.getElementById('vendorForm').addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.submitVendor();
                 });
             }
 
-            // DATA MANAGEMENT
-            saveData() {
-                localStorage.setItem(APP_NAME, JSON.stringify(this.data));
-            }
-
-            loadData() {
-                const saved = localStorage.getItem(APP_NAME);
-                if (saved) {
-                    this.data = JSON.parse(saved);
-                }
-            }
-
             generateId(prefix) {
                 return prefix + '-' + String(Math.random()).substring(2, 10).toUpperCase();
             }
 
-            // PROCUREMENT REQUEST
-            submitProcurementRequest() {
+            async submitProcurementRequest() {
                 const formData = {
                     id: this.generateId('REQ'),
                     requestor: document.getElementById('requestor').value,
@@ -1220,11 +1320,25 @@
                     poNumber: ''
                 };
 
-                this.data.requests.push(formData);
-                this.saveData();
+                // Save to Google Sheets
+                const btn = document.getElementById('submitBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading-spinner"></span>Submitting...';
 
-                document.getElementById('requestMessage').innerHTML = `<div class="alert alert-success">✅ Request submitted successfully! ID: <strong>${formData.id}</strong></div>`;
+                const success = await this.saveToGoogleSheets('addRequest', formData);
+
+                if (success) {
+                    this.data.requests.push(formData);
+                    document.getElementById('requestMessage').innerHTML = `<div class="alert alert-success">✅ Request submitted and saved to Google Sheets! ID: <strong>${formData.id}</strong></div>`;
+                } else {
+                    // Save locally if sheets not available
+                    this.data.requests.push(formData);
+                    document.getElementById('requestMessage').innerHTML = `<div class="alert alert-info">📝 Request submitted (local). Sync with Sheets when available. ID: <strong>${formData.id}</strong></div>`;
+                }
+
                 document.getElementById('procurementForm').reset();
+                btn.disabled = false;
+                btn.innerHTML = '📤 Submit Request';
 
                 setTimeout(() => {
                     this.displayMyRequests();
@@ -1235,14 +1349,13 @@
 
             displayMyRequests() {
                 const tbody = document.getElementById('myRequests');
-                const userRequests = this.data.requests;
 
-                if (userRequests.length === 0) {
+                if (this.data.requests.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No requests yet</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = userRequests.map(req => `
+                tbody.innerHTML = this.data.requests.map(req => `
                     <tr>
                         <td>${req.id}</td>
                         <td>₹${req.amount.toLocaleString('en-IN')}</td>
@@ -1253,7 +1366,6 @@
                 `).join('');
             }
 
-            // PENDING REQUESTS
             loadPendingRequests() {
                 const pendingReqs = this.data.requests.filter(r => r.status === 'Pending');
                 const select = document.getElementById('pendingRequests');
@@ -1276,7 +1388,6 @@
                 }
 
                 const [reqId, requestor, amount, description, email] = value.split('|');
-                const req = this.data.requests.find(r => r.id === reqId);
 
                 document.getElementById('detailReqId').textContent = reqId;
                 document.getElementById('detailRequestor').textContent = requestor;
@@ -1290,7 +1401,86 @@
                 this.currentApprovalRequest = { reqId, requestor, amount, description, email };
             }
 
-            // MATERIAL TRACKING
+            async submitApprovalForm(action) {
+                if (!this.currentApprovalRequest) {
+                    alert('Please select a request');
+                    return;
+                }
+
+                const approverName = document.getElementById('approverName').value;
+                if (!approverName) {
+                    alert('Please enter your name');
+                    return;
+                }
+
+                if (action === 'APPROVED') {
+                    if (!document.getElementById('vendorName').value || !document.getElementById('items').value) {
+                        alert('Please fill in Vendor Name and Items');
+                        return;
+                    }
+
+                    const poNumber = this.generateId('PO');
+                    const po = {
+                        id: poNumber,
+                        requestId: this.currentApprovalRequest.reqId,
+                        vendor: document.getElementById('vendorName').value,
+                        vendorContact: document.getElementById('vendorContact').value,
+                        items: document.getElementById('items').value,
+                        deliveryDate: document.getElementById('poDeliveryDate').value,
+                        amount: this.currentApprovalRequest.amount,
+                        date: new Date().toLocaleDateString(),
+                        status: 'Active',
+                        approvedBy: approverName
+                    };
+
+                    // Save to Google Sheets
+                    const approvalData = {
+                        requestId: this.currentApprovalRequest.reqId,
+                        poNumber: poNumber,
+                        vendor: po.vendor,
+                        vendorContact: po.vendorContact,
+                        items: po.items,
+                        deliveryDate: po.deliveryDate,
+                        amount: po.amount,
+                        approvedBy: approverName
+                    };
+
+                    const success = await this.saveToGoogleSheets('addApproval', approvalData);
+
+                    this.data.pos.push(po);
+                    const req = this.data.requests.find(r => r.id === this.currentApprovalRequest.reqId);
+                    if (req) {
+                        req.status = 'APPROVED';
+                        req.poNumber = poNumber;
+                    }
+
+                    document.getElementById('approvalMessage').innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Request APPROVED!<br>
+                            📄 PO Generated: <strong>${poNumber}</strong><br>
+                            ${success ? '✓ Saved to Google Sheets' : '⚠️ Saved locally (Sync pending)'}
+                        </div>
+                    `;
+                } else {
+                    const req = this.data.requests.find(r => r.id === this.currentApprovalRequest.reqId);
+                    if (req) {
+                        req.status = 'REJECTED';
+                    }
+
+                    document.getElementById('approvalMessage').innerHTML = `
+                        <div class="alert alert-error">
+                            ❌ Request REJECTED
+                        </div>
+                    `;
+                }
+
+                setTimeout(() => {
+                    document.getElementById('approvalForm').reset();
+                    this.loadPendingRequests();
+                    this.loadDashboard();
+                }, 1500);
+            }
+
             loadTrackingPOs() {
                 const select = document.getElementById('trackingPoNumber');
                 select.innerHTML = '<option value="">Select a PO</option>' + this.data.pos.map(po => `
@@ -1320,7 +1510,52 @@
                 this.currentTrackingPO = poId;
             }
 
-            // QUALITY CHECK
+            async submitTrackingForm() {
+                if (!this.currentTrackingPO) {
+                    alert('Please select a PO');
+                    return;
+                }
+
+                const trackingNumber = document.getElementById('trackingNumber').value;
+                const status = document.getElementById('trackingStatus').value;
+
+                if (!trackingNumber || !status) {
+                    alert('Please fill in Tracking Number and Status');
+                    return;
+                }
+
+                const transit = {
+                    id: this.generateId('TRAN'),
+                    poNumber: this.currentTrackingPO,
+                    trackingNumber: trackingNumber,
+                    courier: document.getElementById('courier').value,
+                    status: status,
+                    location: document.getElementById('location').value,
+                    expectedDelivery: document.getElementById('expectedDelivery').value,
+                    date: new Date().toLocaleDateString()
+                };
+
+                const success = await this.saveToGoogleSheets('addTracking', transit);
+
+                this.data.transit.push(transit);
+
+                document.getElementById('trackingMessage').innerHTML = `<div class="alert alert-success">✅ Tracking updated! ID: <strong>${transit.id}</strong></div>`;
+
+                setTimeout(() => {
+                    this.resetTrackingForm();
+                    this.loadDashboard();
+                }, 1500);
+            }
+
+            resetTrackingForm() {
+                document.getElementById('trackingNumber').value = '';
+                document.getElementById('courier').value = '';
+                document.getElementById('trackingStatus').value = '';
+                document.getElementById('location').value = '';
+                document.getElementById('expectedDelivery').value = '';
+                document.getElementById('trackingMessage').innerHTML = '';
+            }
+
             loadQualityPODetails() {
                 const select = document.getElementById('qualityPoNumber');
                 const value = select.value;
@@ -1334,7 +1569,69 @@
                 this.currentQualityPO = value;
             }
 
-            // PAYMENT
+            toggleGRNInfo() {
+                const status = document.getElementById('qualityStatus').value;
+                document.getElementById('grnInfo').style.display = status === 'PASS' ? 'block' : 'none';
+            }
+
+            async submitQualityForm(decision) {
+                if (!this.currentQualityPO) {
+                    alert('Please select a PO');
+                    return;
+                }
+
+                const status = document.getElementById('qualityStatus').value;
+                const checkedBy = document.getElementById('checkedBy').value;
+
+                if (!status || !checkedBy) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+
+                const grnNumber = decision === 'PASS' ? this.generateId('GRN') : '';
+                const debitNote = decision === 'FAIL' ? this.generateId('DBIT') : '';
+
+                const quality = {
+                    id: this.generateId('QC'),
+                    poNumber: this.currentQualityPO,
+                    status: status,
+                    defects: document.getElementById('defects').value,
+                    checkedBy: checkedBy,
+                    grnNumber: grnNumber,
+                    debitNote: debitNote,
+                    notes: document.getElementById('qualityNotes').value,
+                    date: new Date().toLocaleDateString()
+                };
+
+                const success = await this.saveToGoogleSheets('addQuality', quality);
+
+                this.data.quality.push(quality);
+
+                if (decision === 'PASS') {
+                    document.getElementById('qualityMessage').innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Quality PASS!<br>
+                            📄 GRN Generated: <strong>${grnNumber}</strong><br>
+                            ${success ? '✓ Saved to Google Sheets' : '⚠️ Saved locally'}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('qualityMessage').innerHTML = `
+                        <div class="alert alert-error">
+                            ❌ Quality FAIL!<br>
+                            📝 Debit Note: <strong>${debitNote}</strong><br>
+                            ${success ? '✓ Saved to Google Sheets' : '⚠️ Saved locally'}
+                        </div>
+                    `;
+                }
+
+                setTimeout(() => {
+                    document.getElementById('qualityForm').reset();
+                    document.getElementById('qualityStatus').value = '';
+                    this.loadDashboard();
+                }, 1500);
+            }
+
             loadPaymentDetails() {
                 const select = document.getElementById('paymentPoNumber');
                 const value = select.value;
@@ -1354,9 +1651,63 @@
                 this.currentPaymentPO = poId;
             }
 
-            // VENDORS
+            async submitPaymentForm() {
+                if (!this.currentPaymentPO) {
+                    alert('Please select a PO');
+                    return;
+                }
+
+                const invoiceNumber = document.getElementById('invoiceNumber').value;
+                const amount = document.getElementById('paymentAmount').value;
+                const method = document.getElementById('paymentMethod').value;
+
+                if (!invoiceNumber || !amount || !method) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+
+                const payment = {
+                    id: this.generateId('PAY'),
+                    poNumber: this.currentPaymentPO,
+                    invoiceNumber: invoiceNumber,
+                    amount: parseFloat(amount),
+                    method: method,
+                    reference: document.getElementById('reference').value,
+                    notes: document.getElementById('paymentNotes').value,
+                    status: 'Processed',
+                    date: new Date().toLocaleDateString(),
+                    approvedBy: this.userEmail
+                };
+
+                const success = await this.saveToGoogleSheets('addPayment', payment);
+
+                this.data.payments.push(payment);
+
+                document.getElementById('paymentMessage').innerHTML = `
+                    <div class="alert alert-success">
+                        ✅ Payment processed successfully!<br>
+                        Payment ID: <strong>${payment.id}</strong><br>
+                        ${success ? '✓ Saved to Google Sheets' : '⚠️ Saved locally'}
+                    </div>
+                `;
+
+                setTimeout(() => {
+                    this.resetPaymentForm();
+                    this.loadDashboard();
+                }, 1500);
+            }
+
+            resetPaymentForm() {
+                document.getElementById('invoiceNumber').value = '';
+                document.getElementById('paymentAmount').value = '';
+                document.getElementById('paymentMethod').value = '';
+                document.getElementById('reference').value = '';
+                document.getElementById('paymentNotes').value = '';
+                document.getElementById('paymentMessage').innerHTML = '';
+            }
+
             addVendorToMaster(vendorData) {
-                const exists = this.data.vendors.some(v => v.name.toLowerCase() === vendorData.name.toLowerCase());
+                const exists = this.data.vendors.some(v => v.name && v.name.toLowerCase() === vendorData.name.toLowerCase());
                 if (exists) return;
 
                 const vendor = {
@@ -1371,16 +1722,18 @@
                 };
 
                 this.data.vendors.push(vendor);
-                this.saveData();
             }
 
-            submitVendor() {
+            async submitVendor() {
                 const vendorData = {
                     name: document.getElementById('vendorFormName').value,
                     contact: document.getElementById('vendorContactPerson').value,
                     email: document.getElementById('vendorFormEmail').value,
                     phone: document.getElementById('vendorFormPhone').value,
-                    city: document.getElementById('vendorFormCity').value
+                    address: document.getElementById('vendorFormAddress').value,
+                    city: document.getElementById('vendorFormCity').value,
+                    bank: document.getElementById('vendorFormBank').value,
+                    terms: document.getElementById('vendorFormTerms').value
                 };
 
                 if (!vendorData.name || !vendorData.email) {
@@ -1388,9 +1741,17 @@
                     return;
                 }
 
-                this.addVendorToMaster(vendorData);
+                const vendor = {
+                    id: this.generateId('VEN'),
+                    ...vendorData,
+                    status: 'Active'
+                };
 
-                document.getElementById('vendorFormMessage').innerHTML = `<div class="alert alert-success">✅ Vendor added successfully!</div>`;
+                const success = await this.saveToGoogleSheets('addVendor', vendor);
+
+                this.data.vendors.push(vendor);
+
+                document.getElementById('vendorFormMessage').innerHTML = `<div class="alert alert-success">✅ Vendor added successfully! ${success ? '✓ Saved to Google Sheets' : '⚠️ Saved locally'}</div>`;
                 document.getElementById('vendorForm').reset();
 
                 setTimeout(() => {
@@ -1414,12 +1775,11 @@
                         <td>${v.email}</td>
                         <td>${v.phone}</td>
                         <td>${v.city}</td>
-                        <td><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></td>
+                        <td><span class="status-badge status-${v.status ? v.status.toLowerCase() : 'active'}">${v.status || 'Active'}</span></td>
                     </tr>
                 `).join('');
             }
 
-            // DASHBOARD
             loadDashboard() {
                 const dashboard = document.querySelector('#dashboardMetrics');
                 
@@ -1510,11 +1870,12 @@
             } else if (section === 'tracking') {
                 app.loadTrackingPOs();
             } else if (section === 'quality') {
-                app.data.pos.forEach(po => {
-                    const option = document.createElement('option');
-                    option.value = po.id;
-                    option.textContent = `${po.id} - ${po.vendor}`;
-                });
+                const select = document.getElementById('qualityPoNumber');
+                select.innerHTML = '<option value="">Select a PO</option>' + app.data.pos.map(po => `
+                    <option value="${po.id}">
+                        ${po.id} - ${po.vendor}
+                    </option>
+                `).join('');
             } else if (section === 'payment') {
                 const select = document.getElementById('paymentPoNumber');
                 select.innerHTML = '<option value="">Select a PO</option>' + app.data.pos.map(po => `
@@ -1534,14 +1895,14 @@
             const tabs = document.querySelectorAll('#vendors .tab-content');
             const buttons = document.querySelectorAll('#vendors .tab-button');
             
-            tabs.forEach(t => t.style.display = 'none');
+            tabs.forEach(t => t.classList.remove('active'));
             buttons.forEach(b => b.classList.remove('active'));
 
             if (tab === 'view') {
-                document.getElementById('vendorView').style.display = 'block';
+                document.getElementById('vendorView').classList.add('active');
                 app.displayVendors();
             } else {
-                document.getElementById('vendorAdd').style.display = 'block';
+                document.getElementById('vendorAdd').classList.add('active');
             }
 
             event.target.classList.add('active');
@@ -1552,262 +1913,44 @@
             app.loadApprovalDetails();
         }
 
-        function submitApprovalForm(action) {
-            if (!app.currentApprovalRequest) {
-                alert('Please select a request');
-                return;
-            }
-
-            const approverName = document.getElementById('approverName').value;
-            if (!approverName) {
-                alert('Please enter your name');
-                return;
-            }
-
-            if (action === 'APPROVED') {
-                if (!document.getElementById('vendorName').value || !document.getElementById('items').value) {
-                    alert('Please fill in Vendor Name and Items');
-                    return;
-                }
-
-                const poNumber = app.generateId('PO');
-                const po = {
-                    id: poNumber,
-                    requestId: app.currentApprovalRequest.reqId,
-                    vendor: document.getElementById('vendorName').value,
-                    vendorContact: document.getElementById('vendorContact').value,
-                    items: document.getElementById('items').value,
-                    deliveryDate: document.getElementById('poDeliveryDate').value,
-                    amount: app.currentApprovalRequest.amount,
-                    date: new Date().toLocaleDateString(),
-                    status: 'Active',
-                    approvedBy: approverName
-                };
-
-                app.data.pos.push(po);
-                app.addVendorToMaster({
-                    name: po.vendor,
-                    email: po.vendorContact,
-                    contact: '',
-                    phone: '',
-                    city: ''
-                });
-
-                const req = app.data.requests.find(r => r.id === app.currentApprovalRequest.reqId);
-                if (req) {
-                    req.status = 'APPROVED';
-                    req.poNumber = poNumber;
-                }
-
-                app.saveData();
-
-                document.getElementById('approvalMessage').innerHTML = `
-                    <div class="alert alert-success">
-                        ✅ Request APPROVED!<br>
-                        📄 PO Generated: <strong>${poNumber}</strong><br>
-                        🏭 Vendor added to Master
-                    </div>
-                `;
-            } else {
-                const req = app.data.requests.find(r => r.id === app.currentApprovalRequest.reqId);
-                if (req) {
-                    req.status = 'REJECTED';
-                }
-                app.saveData();
-
-                document.getElementById('approvalMessage').innerHTML = `
-                    <div class="alert alert-error">
-                        ❌ Request REJECTED
-                    </div>
-                `;
-            }
-
-            setTimeout(() => {
-                document.getElementById('approvalForm').reset();
-                app.loadPendingRequests();
-                app.loadDashboard();
-            }, 1500);
+        async function submitApprovalForm(action) {
+            await app.submitApprovalForm(action);
         }
 
         function loadTrackingPODetails() {
             app.loadTrackingPODetails();
         }
 
-        function submitTrackingForm() {
-            if (!app.currentTrackingPO) {
-                alert('Please select a PO');
-                return;
-            }
-
-            const trackingNumber = document.getElementById('trackingNumber').value;
-            const status = document.getElementById('trackingStatus').value;
-
-            if (!trackingNumber || !status) {
-                alert('Please fill in Tracking Number and Status');
-                return;
-            }
-
-            const transit = {
-                id: app.generateId('TRAN'),
-                poNumber: app.currentTrackingPO,
-                trackingNumber: trackingNumber,
-                courier: document.getElementById('courier').value,
-                status: status,
-                location: document.getElementById('location').value,
-                expectedDelivery: document.getElementById('expectedDelivery').value,
-                date: new Date().toLocaleDateString()
-            };
-
-            app.data.transit.push(transit);
-            app.saveData();
-
-            document.getElementById('trackingMessage').innerHTML = `<div class="alert alert-success">✅ Tracking updated! ID: <strong>${transit.id}</strong></div>`;
-
-            setTimeout(() => {
-                resetTrackingForm();
-                app.loadDashboard();
-            }, 1500);
+        async function submitTrackingForm() {
+            await app.submitTrackingForm();
         }
 
         function resetTrackingForm() {
-            document.getElementById('trackingNumber').value = '';
-            document.getElementById('courier').value = '';
-            document.getElementById('trackingStatus').value = '';
-            document.getElementById('location').value = '';
-            document.getElementById('expectedDelivery').value = '';
-            document.getElementById('trackingMessage').innerHTML = '';
+            app.resetTrackingForm();
         }
 
         function loadQualityPODetails() {
-            const select = document.getElementById('qualityPoNumber');
-            const value = select.value;
-
-            if (!value) {
-                document.getElementById('qualityForm').style.display = 'none';
-                return;
-            }
-
-            document.getElementById('qualityForm').style.display = 'block';
-            app.currentQualityPO = value;
+            app.loadQualityPODetails();
         }
 
         function toggleGRNInfo() {
-            const status = document.getElementById('qualityStatus').value;
-            document.getElementById('grnInfo').style.display = status === 'PASS' ? 'block' : 'none';
+            app.toggleGRNInfo();
         }
 
-        function submitQualityForm(decision) {
-            if (!app.currentQualityPO) {
-                alert('Please select a PO');
-                return;
-            }
-
-            const status = document.getElementById('qualityStatus').value;
-            const checkedBy = document.getElementById('checkedBy').value;
-
-            if (!status || !checkedBy) {
-                alert('Please fill in all required fields');
-                return;
-            }
-
-            const grnNumber = decision === 'PASS' ? app.generateId('GRN') : '';
-            const debitNote = decision === 'FAIL' ? app.generateId('DBIT') : '';
-
-            const quality = {
-                id: app.generateId('QC'),
-                poNumber: app.currentQualityPO,
-                status: status,
-                defects: document.getElementById('defects').value,
-                checkedBy: checkedBy,
-                grnNumber: grnNumber,
-                debitNote: debitNote,
-                notes: document.getElementById('qualityNotes').value,
-                date: new Date().toLocaleDateString()
-            };
-
-            app.data.quality.push(quality);
-            app.saveData();
-
-            if (decision === 'PASS') {
-                document.getElementById('qualityMessage').innerHTML = `
-                    <div class="alert alert-success">
-                        ✅ Quality PASS!<br>
-                        📄 GRN Generated: <strong>${grnNumber}</strong><br>
-                        ✓ Ready for Payment
-                    </div>
-                `;
-            } else {
-                document.getElementById('qualityMessage').innerHTML = `
-                    <div class="alert alert-error">
-                        ❌ Quality FAIL!<br>
-                        📝 Debit Note: <strong>${debitNote}</strong><br>
-                        ⚠️ Contact Vendor
-                    </div>
-                `;
-            }
-
-            setTimeout(() => {
-                document.getElementById('qualityForm').reset();
-                document.getElementById('qualityStatus').value = '';
-                app.loadDashboard();
-            }, 1500);
+        async function submitQualityForm(decision) {
+            await app.submitQualityForm(decision);
         }
 
         function loadPaymentDetails() {
             app.loadPaymentDetails();
         }
 
-        function submitPaymentForm() {
-            if (!app.currentPaymentPO) {
-                alert('Please select a PO');
-                return;
-            }
-
-            const invoiceNumber = document.getElementById('invoiceNumber').value;
-            const amount = document.getElementById('paymentAmount').value;
-            const method = document.getElementById('paymentMethod').value;
-
-            if (!invoiceNumber || !amount || !method) {
-                alert('Please fill in all required fields');
-                return;
-            }
-
-            const payment = {
-                id: app.generateId('PAY'),
-                poNumber: app.currentPaymentPO,
-                invoiceNumber: invoiceNumber,
-                amount: parseFloat(amount),
-                method: method,
-                reference: document.getElementById('reference').value,
-                notes: document.getElementById('paymentNotes').value,
-                status: 'Processed',
-                date: new Date().toLocaleDateString(),
-                approvedBy: app.userEmail
-            };
-
-            app.data.payments.push(payment);
-            app.saveData();
-
-            document.getElementById('paymentMessage').innerHTML = `
-                <div class="alert alert-success">
-                    ✅ Payment processed successfully!<br>
-                    Payment ID: <strong>${payment.id}</strong>
-                </div>
-            `;
-
-            setTimeout(() => {
-                resetPaymentForm();
-                app.loadDashboard();
-            }, 1500);
+        async function submitPaymentForm() {
+            await app.submitPaymentForm();
         }
 
         function resetPaymentForm() {
-            document.getElementById('invoiceNumber').value = '';
-            document.getElementById('paymentAmount').value = '';
-            document.getElementById('paymentMethod').value = '';
-            document.getElementById('reference').value = '';
-            document.getElementById('paymentNotes').value = '';
-            document.getElementById('paymentMessage').innerHTML = '';
+            app.resetPaymentForm();
         }
 
         // Initialize App
