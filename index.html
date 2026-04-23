@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procurement Workflow Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Procurement Workflow Dashboard</h1>
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#requests">Requests</a></li>
+                <li><a href="#approvals">Approvals</a></li>
+                <li><a href="#reports">Reports</a></li>
+                <li><a href="#settings">Settings</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <!-- Home Section -->
+        <section id="home">
+            <h2>Welcome to the Procurement Dashboard</h2>
+            <p>Here you can manage procurement requests, approvals, and reports.</p>
+        </section>
+        
+        <!-- Requests Section -->
+        <section id="requests">
+            <h2>Procurement Requests</h2>
+            <form action="#" method="post">
+                <label for="requesterName">Requester Name:</label>
+                <input type="text" id="requesterName" name="requesterName" required>
+                <label for="itemDescription">Item Description:</label>
+                <input type="text" id="itemDescription" name="itemDescription" required>
+                <label for="quantity">Quantity:</label>
+                <input type="number" id="quantity" name="quantity" required>
+                <button type="submit">Submit Request</button>
+            </form>
+        </section>
+        
+        <!-- Approvals Section -->
+        <section id="approvals">
+            <h2>Approvals</h2>
+            <p>Manage requests for approvals here.</p>
+            <button>Approve</button>
+            <button>Deny</button>
+        </section>
+        
+        <!-- Reports Section -->
+        <section id="reports">
+            <h2>Reports</h2>
+            <p>View procurement reports based on requests.</p>
+            <button>Generate Report</button>
+        </section>
+        
+        <!-- Settings Section -->
+        <section id="settings">
+            <h2>Settings</h2>
+            <p>Manage your account settings.</p>
+            <form action="#" method="post">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">Update Settings</button>
+            </form>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Procurement Dashboard. All rights reserved.</p>
+    </footer>
+</body>
+</html>
